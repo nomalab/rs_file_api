@@ -37,30 +37,32 @@ pub fn read(reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
 
   let client = hyper::Client::new();
 
-  let range = vec![hyper::header::ByteRangeSpec::FromTo(0, (size - 1) as u64)];
-
-  let request =
-    client
-    .get(&reader.filename)
-    .header(hyper::header::Range::Bytes(range));
-
-
-  let mut resp = try!(request.send().map_err(|e| e.to_string()));
-  
-  let loaded_size : u64;
-  {
-    let cl = resp.headers.get::<hyper::header::ContentLength>().unwrap();
-    loaded_size = **cl as u64;
-  }
-  let mut body = vec![0; loaded_size as usize];
-  try!(Read::read(&mut resp, &mut body).map_err(|e| e.to_string()));
-
   match reader.http_reader {
+    None => Err("missing HTTP reader".to_string()),
     Some(ref mut http_reader) => {
+      let start = http_reader.position;
+      let end = http_reader.position + (size - 1) as u64;
+
+      let range = vec![hyper::header::ByteRangeSpec::FromTo(start, end)];
+
+      let request =
+        client
+        .get(&reader.filename)
+        .header(hyper::header::Range::Bytes(range));
+
+      let mut resp = try!(request.send().map_err(|e| e.to_string()));
+      
+      let loaded_size : u64;
+      {
+        let cl = resp.headers.get::<hyper::header::ContentLength>().unwrap();
+        loaded_size = **cl as u64;
+      }
+      let mut body = vec![0; loaded_size as usize];
+      try!(Read::read(&mut resp, &mut body).map_err(|e| e.to_string()));
+
       http_reader.position = http_reader.position + loaded_size as u64;
       Ok(body)
     },
-    None => Err("missing HTTP reader".to_string()),
   }
 }
 

@@ -47,7 +47,6 @@ impl Reader {
       ReaderKind::Http => http::read(self, size),
       ReaderKind::Filesystem => file_system::read(self, size)
     }
-    
   }
 
   pub fn get_position(&self) -> Result<u64, String> {
