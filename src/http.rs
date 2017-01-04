@@ -13,7 +13,8 @@ use reader::Reader;
 #[derive(Debug)]
 pub struct HttpReader {
   position: u64,
-  size: Option<u64>
+  size: Option<u64>,
+  buffer: Vec<u8>
 }
 
 pub fn exists(filename: &String) -> bool {
@@ -41,13 +42,15 @@ pub fn open(filename: &String) -> Result<Reader, String> {
 
       let http_reader = HttpReader{
         position: 0,
-        size: content_length
+        size: content_length,
+        buffer: Vec::new()
       };
 
       let reader = Reader{
         filename: filename.to_string(),
         mode: ReaderKind::Http,
         file: None,
+        cache_size: Some(10000),
         http_reader: Some(http_reader)
       };
 
@@ -56,10 +59,9 @@ pub fn open(filename: &String) -> Result<Reader, String> {
   }
 }
 
-pub fn read(reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
-
+fn load_data(reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
   let client = Client::new();
-
+  println!("make HTTP request with request {:?} bytes", size);
   match reader.http_reader {
     None => Err("missing HTTP reader".to_string()),
     Some(ref mut http_reader) => {
@@ -121,7 +123,63 @@ pub fn read(reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
           Ok(body)
         }
       }
+    }
+  }
+}
+
+pub fn read(mut reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
+  // println!("read {:?} bytes", size);
+  match reader.cache_size {
+    None => {
+      load_data(reader, size)
     },
+    Some(cache_size) => {
+      let mut data_size_to_load : Option<usize> = None;
+      match reader.http_reader {
+        Some(ref http_reader) => {
+          match http_reader.buffer.len() < size {
+            true => {
+              data_size_to_load = Some(cache_size);
+            }
+            _ => {}
+          }
+        },
+        None => return Err("Missing Http Reader".to_string()),
+      };
+
+      let mut buffer = Vec::new();
+      match data_size_to_load {
+        Some(required_size) => {
+          match load_data(&mut reader, required_size) {
+            Ok(mut data) => {
+              let buf = data.split_off(size);
+
+              match reader.http_reader {
+                Some(ref mut http_reader) => http_reader.buffer = buf,
+                None => return Err("Missing Http Reader".to_string()),
+              };
+              buffer = data;
+            },
+            Err(msg) => {
+              return Err(msg)
+            },
+          };
+        },
+        None => {
+          match reader.http_reader {
+            Some(ref mut http_reader) => {
+              let mut old_buffer = http_reader.buffer.clone();
+
+              let buf = old_buffer.split_off(size);
+              http_reader.buffer = buf;
+              buffer = old_buffer;
+            },
+            None => return Err("Missing Http Reader".to_string()),
+          };
+        },
+      }
+      Ok(buffer)
+    }
   }
 }
 
@@ -148,8 +206,13 @@ pub fn get_size(reader: &mut Reader) -> Result<u64, String> {
 }
 
 pub fn seek(reader: &mut Reader, seek: SeekFrom) -> Result<u64, String> {
+  // println!("Seek");
   match reader.http_reader {
     Some(ref mut http_reader) => {
+      // println!("current lenght {:?}", http_reader.buffer.len());
+      let buffer_offset = http_reader.buffer.len();
+      http_reader.buffer = Vec::new();
+
       match seek {
         SeekFrom::Start(value) => {
           http_reader.position = value;
@@ -160,7 +223,10 @@ pub fn seek(reader: &mut Reader, seek: SeekFrom) -> Result<u64, String> {
           Ok(http_reader.position)
         },
         SeekFrom::Current(value) => {
-          http_reader.position = http_reader.position + value as u64;
+          let mut new_position = http_reader.position;
+          new_position -= buffer_offset as u64;
+          new_position += value as u64;
+          http_reader.position = new_position;
           Ok(http_reader.position)
         }
       }

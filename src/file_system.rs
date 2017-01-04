@@ -18,6 +18,7 @@ pub fn open(filename: &String) -> Result<Reader, String> {
     filename: filename.to_string(),
     mode: ReaderKind::Filesystem,
     file: Some(file),
+    cache_size: None,
     http_reader: None
   };
   Ok(reader)

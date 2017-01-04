@@ -16,7 +16,8 @@ pub struct Reader {
   pub filename: String,
   pub mode: ReaderKind,
   pub file: Option<File>,
-  pub http_reader: Option<http::HttpReader>
+  pub http_reader: Option<http::HttpReader>,
+  pub cache_size: Option<usize>
 }
 
 fn detect_kind(filename: &String) -> ReaderKind {
@@ -42,6 +43,13 @@ pub fn open(filename: String) -> Result<Reader, String> {
 }
 
 impl Reader {
+  pub fn get_type(&self) -> ReaderKind {
+    match self.mode {
+      ReaderKind::Http => ReaderKind::Http,
+      ReaderKind::Filesystem => ReaderKind::Filesystem
+    }
+  }
+
   pub fn read(&mut self, size: usize) -> Result<Vec<u8>, String> {
     match self.mode {
       ReaderKind::Http => http::read(self, size),
