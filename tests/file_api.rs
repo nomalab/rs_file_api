@@ -67,3 +67,35 @@ fn seek_content() {
 	reader.read(2).unwrap();
 	assert!(reader.get_position().unwrap() == 12);
 }
+
+#[test]
+fn file_content_size() {
+	let file = "Cargo.toml".to_string();
+
+	let mut reader = file_api::reader::open(file).unwrap();
+
+	let size = reader.get_size().unwrap();
+	assert!(size == 129);
+}
+#[test]
+fn http_content_size() {
+	let file = "http://www.nomalab.com/".to_string();
+
+	let mut reader = file_api::reader::open(file).unwrap();
+
+	let size = reader.get_size().unwrap();
+	assert!(size == 3230);
+}
+
+#[test]
+fn http_end_of_content() {
+	let file = "http://www.nomalab.com/".to_string();
+
+	let mut reader = file_api::reader::open(file).unwrap();
+
+	let size = reader.get_size().unwrap();
+	let _new_position = reader.seek(SeekFrom::Start(size + 5));
+
+	let result = reader.read(1);
+	assert!(result == Err("Out of range: 3235 > 3230".to_string()));
+}

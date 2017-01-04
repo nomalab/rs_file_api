@@ -1,5 +1,6 @@
 
 use std::io::prelude::*;
+use std::fs;
 use std::fs::File;
 use std::path::Path;
 use std::io::SeekFrom;
@@ -41,6 +42,13 @@ pub fn get_position(reader: &Reader) -> Result<u64, String> {
     Some(ref _file) => Ok(0),
     None => Err("missing HTTP reader".to_string()),
   }
+}
+
+pub fn get_size(reader: &mut Reader) -> Result<u64, String> {
+
+  let metadata = try!(fs::metadata(reader.filename.clone()).map_err(|e| e.to_string()));
+
+  Ok(metadata.len())
 }
 
 pub fn seek(reader: &mut Reader, seek: SeekFrom) -> Result<u64, String> {

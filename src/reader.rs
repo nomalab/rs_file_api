@@ -51,8 +51,15 @@ impl Reader {
 
   pub fn get_position(&self) -> Result<u64, String> {
     match self.mode {
-      ReaderKind::Http => http::get_position(&self),
-      ReaderKind::Filesystem => file_system::get_position(&self)
+      ReaderKind::Http => http::get_position(self),
+      ReaderKind::Filesystem => file_system::get_position(self)
+    }
+  }
+
+  pub fn get_size(&mut self) -> Result<u64, String> {
+    match self.mode {
+      ReaderKind::Http => http::get_size(self),
+      ReaderKind::Filesystem => file_system::get_size(self)
     }
   }
 
