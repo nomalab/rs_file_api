@@ -16,7 +16,7 @@ pub fn open(filename: &String) -> Result<Reader, String> {
   let file = try!(File::open(filename).map_err(|e| e.to_string()));
   let reader = Reader{
     filename: filename.to_string(),
-    mode: ReaderKind::Filesystem,
+    mode: ReaderKind::FileSystem,
     file: Some(file),
     cache_size: None,
     http_reader: None

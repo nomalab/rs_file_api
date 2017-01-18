@@ -5,4 +5,7 @@ extern crate hyper;
 
 mod file_system;
 mod http;
+
+mod buffer;
+
 pub mod reader;

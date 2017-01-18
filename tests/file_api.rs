@@ -4,13 +4,13 @@ use std::io::SeekFrom;
 
 #[test]
 fn file_exists() {
-	let file = "Cargo.toml".to_string();
+	let file = "tests/sample_data_file.txt".to_string();
 	assert!(file_api::reader::exists(&file) == true);
 }
 
 #[test]
 fn file_not_exists() {
-	let file = "file_not_exists.toml".to_string();
+	let file = "tests/file_not_exists.toml".to_string();
 	assert!(file_api::reader::exists(&file) == false);
 }
 
@@ -70,13 +70,15 @@ fn seek_content() {
 
 #[test]
 fn file_content_size() {
-	let file = "Cargo.toml".to_string();
+	let file = "tests/sample_data_file.txt".to_string();
 
 	let mut reader = file_api::reader::open(file).unwrap();
 
 	let size = reader.get_size().unwrap();
-	assert!(size == 129);
+	println!("{:?}", size);
+	assert!(size == 20);
 }
+
 #[test]
 fn http_content_size() {
 	let file = "http://www.nomalab.com/".to_string();
