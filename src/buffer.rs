@@ -22,6 +22,8 @@ impl Buffer {
 
     let data = self.buffer.clone();
     self.buffer = next_data;
+
+    debug!("left #{:?}", self.buffer.len());
     data
   }
 

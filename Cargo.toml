@@ -4,4 +4,5 @@ version = "0.1.0"
 authors = ["Marc-Antoine Arnaud <marc.antoine@nomalab.com>"]
 
 [dependencies]
+log = "0.3.6"
 hyper = "0.9.13"

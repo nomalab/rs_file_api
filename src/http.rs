@@ -102,7 +102,7 @@ fn get_data_range(position: u64, size: usize) -> Vec<ByteRangeSpec> {
 
 fn load_data(reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
 
-  println!("make HTTP request with request {:?} bytes", size);
+  info!("make HTTP request with request {:?} bytes", size);
   match reader.http_reader {
     None => Err("missing HTTP reader".to_string()),
     Some(ref mut http_reader) => {
@@ -143,7 +143,7 @@ fn load_data(reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
         0 => Err("Bad request range".to_string()),
         _ => {
           let mut body = vec![0; loaded_size as usize];
-          try!(Read::read(&mut response, &mut body).map_err(|e| e.to_string()));
+          try!(Read::read_exact(&mut response, &mut body).map_err(|e| e.to_string()));
 
           http_reader.position = http_reader.position + loaded_size as u64;
           Ok(body)
@@ -166,7 +166,7 @@ fn define_size_to_load(reader: &Reader, cache_size: usize, size: usize) -> Optio
 }
 
 pub fn read(mut reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
-  // println!("read {:?} bytes", size);
+  debug!("read {:?} bytes", size);
   match reader.cache_size {
     None => {
       load_data(reader, size)

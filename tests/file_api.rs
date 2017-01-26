@@ -86,7 +86,8 @@ fn http_content_size() {
 	let mut reader = file_api::reader::open(file).unwrap();
 
 	let size = reader.get_size().unwrap();
-	assert!(size == 3230);
+	println!("{:?}", size);
+	assert!(size == 3399);
 }
 
 #[test]
@@ -99,5 +100,5 @@ fn http_end_of_content() {
 	let _new_position = reader.seek(SeekFrom::Start(size + 5));
 
 	let result = reader.read(1);
-	assert!(result == Err("Out of range: 3235 > 3230".to_string()));
+	assert!(result == Err("Out of range: 3404 > 3399".to_string()));
 }
