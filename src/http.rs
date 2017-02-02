@@ -100,7 +100,7 @@ fn get_data_range(position: u64, size: usize) -> Vec<ByteRangeSpec> {
   vec![FromTo(start, end)]
 }
 
-fn load_data(reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
+fn load_data(reader: &mut Reader, size: usize) -> Result<Option<Vec<u8>>, String> {
 
   info!("make HTTP request with request {:?} bytes", size);
   match reader.http_reader {
@@ -110,7 +110,7 @@ fn load_data(reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
       match http_reader.size {
           Some(size) => {
             if http_reader.position >= size {
-              return Err(format!("Out of range: {} > {}", http_reader.position, size))
+              return Ok(None)
             }
           },
           None => (),
@@ -146,7 +146,7 @@ fn load_data(reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
           try!(Read::read_exact(&mut response, &mut body).map_err(|e| e.to_string()));
 
           http_reader.position = http_reader.position + loaded_size as u64;
-          Ok(body)
+          Ok(Some(body))
         }
       }
     }
@@ -169,27 +169,41 @@ pub fn read(mut reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
   debug!("read {:?} bytes", size);
   match reader.cache_size {
     None => {
-      load_data(reader, size)
+      match load_data(reader, size) {
+        Ok(optional_data) => {
+          match optional_data {
+            Some(data) => Ok(data),
+            None => Ok(Vec::new()),
+          }
+        },
+        Err(msg) => return Err(msg)
+      }
     },
     Some(cache_size) => {
-
       let mut buffer = Vec::new();
       match define_size_to_load(reader, cache_size, size) {
         Some(required_size) => {
           match load_data(&mut reader, required_size) {
-            Ok(full_data) => {
-              match reader.http_reader {
-                Some(ref mut http_reader) => {
-                  http_reader.buf.append_data(&full_data);
-                  buffer = http_reader.buf.get_data(size);
+            Ok(optional_data) => {
+              match optional_data {
+                Some(full_data) => {
+                  match reader.http_reader {
+                    Some(ref mut http_reader) => {
+                      http_reader.buf.append_data(&full_data);
+                      buffer = http_reader.buf.get_data(size);
+                    },
+                    None => panic!("Missing Http Reader"),
+                  }
                 },
-                None => panic!("Missing Http Reader"),
-              };
+                None => {
+                  return Ok(Vec::new())
+                },
+              }
             },
             Err(msg) => {
               return Err(msg)
-            },
-          };
+            }
+          }
         },
         None => {
           match reader.http_reader {
