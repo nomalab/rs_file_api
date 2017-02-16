@@ -100,5 +100,7 @@ fn http_end_of_content() {
 	let _new_position = reader.seek(SeekFrom::Start(size + 5));
 
 	let result = reader.read(1);
-	assert!(result == Err("Out of range: 3404 > 3399".to_string()));
+	assert!(result.is_ok());
+	let content = result.unwrap();
+	assert!(content.len() == 0);
 }
