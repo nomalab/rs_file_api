@@ -220,9 +220,24 @@ pub fn read(mut reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
 }
 
 pub fn get_position(reader: &Reader) -> Result<u64, String> {
-  match reader.http_reader {
-    Some(ref http_reader) => Ok(http_reader.position),
-    None => Err("missing HTTP reader".to_string()),
+
+  match reader.cache_size {
+    None => {
+      match reader.http_reader {
+        Some(ref http_reader) => {
+          Ok(http_reader.position)
+        },
+        None => Err("missing HTTP reader".to_string()),
+      }
+    },
+    Some(_cache_size) => {
+      match reader.http_reader {
+        Some(ref http_reader) => {
+          Ok(http_reader.position - http_reader.buf.get_cached_size() as u64)
+        },
+        None => Err("missing HTTP reader".to_string()),
+      }
+    }
   }
 }
 
