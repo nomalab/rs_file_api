@@ -38,9 +38,9 @@ pub fn read(reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
   Ok(data)
 }
 
-pub fn get_position(reader: &Reader) -> Result<u64, String> {
+pub fn get_position(reader: &mut Reader) -> Result<u64, String> {
   match reader.file {
-    Some(ref _file) => Ok(0),
+    Some(ref mut file) => Ok(file.seek(SeekFrom::Current(0)).unwrap()),
     None => Err("missing HTTP reader".to_string()),
   }
 }
