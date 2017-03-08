@@ -35,8 +35,6 @@ pub fn read(reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
   let mut data = vec![0; size];
   let loaded_size = try!(file.read(&mut data).map_err(|e| e.to_string()));
 
-  println!("{:?}", loaded_size);
-  println!("{:?}", size);
   match loaded_size == size {
     true => Ok(data),
     false => Ok(Vec::new()),
