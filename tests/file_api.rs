@@ -27,6 +27,21 @@ fn url_not_exists() {
 }
 
 #[test]
+fn read_file_content() {
+	let file = "tests/sample_data_file.txt".to_string();
+
+	let mut reader = file_api::reader::open(file).unwrap();
+
+	let data = reader.read(16).unwrap();
+	println!("{:?}", reader.get_position());
+	assert!(data.len() == 16);
+	assert!(reader.get_position().unwrap() == 16);
+
+	reader.read(2).unwrap();
+	assert!(reader.get_position().unwrap() == 18);
+}
+
+#[test]
 fn read_content() {
 	// let file = "http://localhost:4000/api/cards".to_string();
 	// let file = "http://google.com/api".to_string();
@@ -88,6 +103,22 @@ fn http_content_size() {
 	let size = reader.get_size().unwrap();
 	println!("{:?}", size);
 	assert!(size == 3399);
+}
+
+
+#[test]
+fn file_end_of_content() {
+	let file = "tests/sample_data_file.txt".to_string();
+
+	let mut reader = file_api::reader::open(file).unwrap();
+
+	let size = reader.get_size().unwrap();
+	let _new_position = reader.seek(SeekFrom::Start(size + 5));
+
+	let result = reader.read(1);
+	assert!(result.is_ok());
+	let content = result.unwrap();
+	assert!(content.len() == 0);
 }
 
 #[test]
