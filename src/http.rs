@@ -219,7 +219,7 @@ pub fn read(mut reader: &mut Reader, size: usize) -> Result<Vec<u8>, String> {
   }
 }
 
-pub fn get_position(reader: &Reader) -> Result<u64, String> {
+pub fn get_position(reader: &mut Reader) -> Result<u64, String> {
 
   match reader.cache_size {
     None => {

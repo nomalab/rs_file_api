@@ -65,7 +65,7 @@ impl Reader {
     }
   }
 
-  pub fn get_position(&self) -> Result<u64, String> {
+  pub fn get_position(&mut self) -> Result<u64, String> {
     match self.mode {
       ReaderKind::Http => http::get_position(self),
       ReaderKind::FileSystem => file_system::get_position(self)
