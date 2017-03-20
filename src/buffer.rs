@@ -1,6 +1,7 @@
 
 #[derive(Debug)]
 pub struct Buffer {
+  pub size: Option<usize>,
   pub position: u64,
   pub buffer: Vec<u8>
 }
@@ -8,6 +9,7 @@ pub struct Buffer {
 impl Buffer {
   pub fn create() -> Buffer {
     Buffer{
+      size: None,
       position: 0,
       buffer: Vec::new()
     }

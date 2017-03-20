@@ -6,6 +6,7 @@ use std::path::Path;
 use std::io::SeekFrom;
 
 use reader::ReaderKind;
+use reader::ReaderFn;
 use reader::Reader;
 
 pub fn exists(filename: &String) -> bool {

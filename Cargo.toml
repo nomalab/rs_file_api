@@ -12,3 +12,7 @@ documentation = "https://github.com/nomalab/rs_file_api/blob/master/README.md"
 [dependencies]
 log = "0.3.6"
 hyper = "0.9.13"
+
+[dev-dependencies]
+tokio-core = "0.1"
+futures = "0.1.10"
