@@ -22,18 +22,18 @@ pub fn exists(filename: &String) -> bool {
 impl Reader for FileReader {
   fn open(filename: &String) -> FileReader {
     match File::open(filename) {
-        Err(msg) => panic!(msg.to_string()),
-        Ok(file) =>
-          FileReader {
-            filename: filename.to_string(),
+      Err(msg) => panic!(msg.to_string()),
+      Ok(file) =>
+        FileReader {
+          filename: filename.to_string(),
+          position: 0,
+          file: file,
+          buffer: Buffer {
+            size: None,
             position: 0,
-            file: file,
-            buffer: Buffer {
-              size: None,
-              position: 0,
-              buffer: vec![]
-            }
-          },
+            buffer: vec![]
+          }
+        },
     }
   }
 

@@ -10,22 +10,31 @@ use std::net::TcpListener;
 use file_api::http_reader::HttpReader;
 use file_api::reader::Reader;
 
-fn mock_server(port: &str, message: String, tester: &mut FnMut(), total: usize) {
+fn mock_server(port: &str, messages: Vec<String>, tester: &mut FnMut()) {
   let address = ["127.0.0.1:", port].join("");
   let server = TcpListener::bind(address).unwrap();
 
-  let response = message.clone();
+  let mut responses = messages.clone();
 
   let handler = thread::spawn(move || {
-    let mut count = 0;
-    while count != total {
+    while responses.len() != 0 {
       for server_stream in server.incoming() {
         match server_stream {
           Ok(mut stream) => {
-
-            stream.write_all(response.as_str().as_bytes()).unwrap();
-            count += 1;
-            break;
+            let mut remove_first = false;
+            match responses.first() {
+              Some(response) => {
+                stream.write_all(response.as_str().as_bytes()).unwrap();
+                remove_first = true;
+              },
+              None => {
+                break;
+              },
+            }
+            if remove_first {
+              responses.remove(0);
+              break;
+            }
           }
           Err(e) => {
             println!("Unable to connect: {}", e);
@@ -41,32 +50,39 @@ fn mock_server(port: &str, message: String, tester: &mut FnMut(), total: usize) 
 
 #[test]
 fn http_exists() {
-  let response = "HTTP/1.1 200 OK\n\n".to_string();
+  let responses = vec![
+    "HTTP/1.1 200 OK\n\n".to_string()
+  ];
 
   fn check(){
     let file = "http://127.0.0.1:8880".to_string();
     assert!(file_api::exists(&file) == true);
   }
 
-  mock_server("8880", response, &mut check, 1);
+  mock_server("8880", responses, &mut check);
 }
 
 #[test]
 fn http_not_exists() {
 
-  let response = "HTTP/1.1 404 OK\n\n".to_string();
+  let responses = vec![
+    "HTTP/1.1 404 OK\n\n".to_string()
+  ];
 
   fn check(){
     let file = "http://127.0.0.1:8881".to_string();
     assert!(file_api::exists(&file) == false);
   }
 
-  mock_server("8881", response, &mut check, 1);
+  mock_server("8881", responses, &mut check);
 }
 
 #[test]
 fn http_size() {
-  let response = "HTTP/1.1 200 OK\r\nContent-Length: 19\r\n\r\nsomedataandsomemore".to_string();
+  let responses = vec![
+    "HTTP/1.1 200 OK\r\nContent-Length: 19\r\n\r\n".to_string()
+  ];
+
   fn check() {
     let filename = "http://127.0.0.1:8882".to_string();
     let mut reader : HttpReader = Reader::open(&filename);
@@ -75,12 +91,16 @@ fn http_size() {
     assert_eq!(size, 19);
   }
 
-  mock_server("8882", response, &mut check, 1);
+  mock_server("8882", responses, &mut check);
 }
 
 #[test]
 fn http_read_data() {
-  let response = "HTTP/1.1 200 OK\r\nContent-Length: 4\r\nContent-Range: bytes 0-4/19\r\n\r\nsome".to_string();
+  let responses = vec![
+    "HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n".to_string(),
+    "HTTP/1.1 200 OK\r\nContent-Length: 4\r\nContent-Range: bytes 0-4/19\r\n\r\nsome".to_string(),
+    "HTTP/1.1 200 OK\r\nContent-Length: 4\r\nContent-Range: bytes 4-8/19\r\n\r\ndata".to_string(),
+  ];
   fn check() {
     let filename = "http://127.0.0.1:8883/data".to_string();
     let mut reader : HttpReader = Reader::open(&filename);
@@ -95,7 +115,17 @@ fn http_read_data() {
 
     let position = reader.get_position().unwrap();
     assert_eq!(position, 4);
+
+
+    let data = reader.read(4).unwrap();
+    assert_eq!(data.len(), 4);
+    let data_str = std::str::from_utf8(&data).unwrap();
+    assert!(data_str == "data".to_string());
+
+    let position = reader.get_position().unwrap();
+    assert_eq!(position, 8);
   }
 
-  mock_server("8883", response, &mut check, 2);
+  mock_server("8883", responses, &mut check);
 }
+
