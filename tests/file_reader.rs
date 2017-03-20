@@ -3,6 +3,8 @@ extern crate file_api;
 use file_api::file_reader::FileReader;
 use file_api::reader::Reader;
 
+use std::io::SeekFrom;
+
 #[test]
 fn file_exists() {
 	let filename = "tests/sample_data_file.txt".to_string();
@@ -46,4 +48,16 @@ fn file_read_data() {
 
 	let position = reader.get_position().unwrap();
 	assert_eq!(position, 8);
+}
+
+#[test]
+fn file_seek() {
+	let filename = "tests/sample_data_file.txt".to_string();
+	let mut reader : FileReader = Reader::open(&filename);
+
+	let position = reader.get_position().unwrap();
+	assert_eq!(position, 0);
+
+	let position = reader.seek(SeekFrom::Current(4)).unwrap();
+	assert_eq!(position, 4);
 }

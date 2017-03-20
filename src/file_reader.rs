@@ -3,7 +3,9 @@ use std::fs;
 use std::path::Path;
 use std::fs::File;
 
+use std::io::prelude::*;
 use std::io::Read;
+use std::io::SeekFrom;
 
 use reader::Reader;
 use buffer::Buffer;
@@ -65,5 +67,11 @@ impl Reader for FileReader {
       },
       false => Ok(Vec::new()),
     }
+  }
+
+  fn seek(&mut self, seek: SeekFrom) -> Result<u64, String> {
+    let position = try!(self.file.seek(seek).map_err(|e| e.to_string()));
+    self.position = position;
+    Ok(position)
   }
 }

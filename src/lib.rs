@@ -32,19 +32,6 @@ pub fn exists(filename: &String) -> bool {
   }
 }
 
-// pub fn open(filename: String) -> Reader? {
-//   match detect_kind(&filename) {
-//     ReaderKind::Http => {
-//       let mut reader : http_reader::HttpReader = reader::Reader::open(&filename);
-//       reader
-//     },
-//     ReaderKind::File => {
-//       let mut reader : file_reader::FileReader = reader::Reader::open(&filename);
-//       reader
-//     }
-//   }
-// }
-
 #[test]
 fn detect_file_kind() {
   let filename = "filename.txt".to_string();

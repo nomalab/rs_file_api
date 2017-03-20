@@ -177,4 +177,24 @@ impl Reader for HttpReader {
       }
     }
   }
+
+  fn seek(&mut self, seek: SeekFrom) -> Result<u64, String> {
+    match seek {
+      SeekFrom::Current(offset) => {
+        self.position = self.position + offset as u64;
+      },
+      SeekFrom::Start(offset) => {
+        self.position = offset;
+      },
+      SeekFrom::End(offset) => {
+        match self.file_size {
+          Some(size) => {
+            self.position = size - offset as u64;
+          },
+          None => return Err("Missing file size".to_string())
+        }
+      }
+    }
+    Ok(self.position)
+  }
 }

@@ -5,6 +5,7 @@ extern crate futures;
 
 use std::thread;
 use std::io::Write;
+use std::io::SeekFrom;
 use std::net::TcpListener;
 
 use file_api::http_reader::HttpReader;
@@ -21,16 +22,17 @@ fn mock_server(port: &str, messages: Vec<String>, tester: &mut FnMut()) {
       for server_stream in server.incoming() {
         match server_stream {
           Ok(mut stream) => {
-            let mut remove_first = false;
-            match responses.first() {
-              Some(response) => {
-                stream.write_all(response.as_str().as_bytes()).unwrap();
-                remove_first = true;
-              },
-              None => {
-                break;
-              },
-            }
+            let remove_first =
+              match responses.first() {
+                Some(response) => {
+                  stream.write_all(response.as_str().as_bytes()).unwrap();
+                  true
+                },
+                None => {
+                  false
+                },
+              };
+
             if remove_first {
               responses.remove(0);
               break;
@@ -97,7 +99,7 @@ fn http_size() {
 #[test]
 fn http_read_data() {
   let responses = vec![
-    "HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n".to_string(),
+    "HTTP/1.1 200 OK\r\nContent-Length: 19\r\n\r\n".to_string(),
     "HTTP/1.1 200 OK\r\nContent-Length: 4\r\nContent-Range: bytes 0-4/19\r\n\r\nsome".to_string(),
     "HTTP/1.1 200 OK\r\nContent-Length: 4\r\nContent-Range: bytes 4-8/19\r\n\r\ndata".to_string(),
   ];
@@ -129,3 +131,21 @@ fn http_read_data() {
   mock_server("8883", responses, &mut check);
 }
 
+#[test]
+fn http_seek() {
+  let responses = vec![
+    "HTTP/1.1 200 OK\r\nContent-Length: 19\r\n\r\n".to_string(),
+  ];
+  fn check() {
+    let filename = "http://127.0.0.1:8884/data".to_string();
+    let mut reader : HttpReader = Reader::open(&filename);
+
+    let position = reader.get_position().unwrap();
+    assert_eq!(position, 0);
+
+    let position = reader.seek(SeekFrom::Current(4)).unwrap();
+    assert_eq!(position, 4);
+  }
+
+  mock_server("8884", responses, &mut check);
+}
