@@ -9,7 +9,7 @@ Supported reader:
 - [x] File (on local machine) 
 - [x] HTTP
 
-=
+---
 
 Supported by [Nomalab](http://www.nomalab.com/).
 
