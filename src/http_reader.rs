@@ -1,34 +1,39 @@
 
-use std::io::{Read, SeekFrom};
+use std::io::SeekFrom;
 
 use hyper;
 use hyper::Error;
-use hyper::client::Client;
-use hyper::client::response::Response;
-
-
+use hyper::client::{Client, Response};
+use hyper::{Request, Method};
 use hyper::header::ByteRangeSpec;
 use hyper::header::ByteRangeSpec::FromTo;
 use hyper::header::Range::Bytes;
 use hyper::header::{ContentLength, ContentRange, ContentRangeSpec};
 
+use futures::Future;
+use futures::stream::Stream;
+use tokio_core::reactor::Core;
+
 use reader::Reader;
 use buffer::Buffer;
 
 fn get_head(filename: &String) -> Result<Response, Error> {
-  let client = Client::new();
-  client.head(filename).send()
+  let core = Core::new().unwrap();
+  let client = Client::new(&core.handle());
+  let uri = filename.parse().unwrap();
+  let req = Request::new(Method::Head, uri);
+  client.request(req).wait()
 }
 
 fn get_content_length(response: &Response) -> Option<u64> {
-  match response.headers.get::<ContentLength>() {
+  match response.headers().get::<ContentLength>() {
     Some(length) => Some(**length as u64),
     None => None
   }
 }
 
 fn get_content_range(response: &Response) -> Result<Option<u64>, String> {
-  match response.headers.get::<ContentRange>() {
+  match response.headers().get::<ContentRange>() {
     Some(content_range) => {
       match content_range.clone() {
         ContentRange(ContentRangeSpec::Bytes{
@@ -55,9 +60,8 @@ pub struct HttpReader {
 }
 
 pub fn exists(filename: &String) -> bool {
-  let client = Client::new();
-  match client.head(filename).send() {
-    Ok(resp) => resp.status == hyper::Ok,
+  match get_head(filename) {
+    Ok(resp) => resp.status() == hyper::Ok,
     Err(_) => false
   }
 }
@@ -84,35 +88,39 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
 
   let range = get_data_range(reader.position, size);
 
-  let client = Client::new();
-  let request =
+
+  let core = Core::new().unwrap();
+  let client = Client::new(&core.handle());
+  let uri = reader.filename.parse().unwrap();
+
+  let mut req = Request::new(Method::Get, uri);
+  req.headers_mut().set(Bytes(range));
+
+  let response =
     client
-    .get(&reader.filename)
-    .header(Bytes(range));
+    .request(req).wait().unwrap();
 
-    let mut response = try!(request.send().map_err(|e| e.to_string()));
-      
-    let mut loaded_size : u64 = 0;
-    {
+    let loaded_size =
       match get_content_length(&response) {
-          Some(content_length) => loaded_size = content_length,
+          Some(content_length) => content_length,
           None => return Err("Missing content_length".to_string()),
-      }
+      };
 
-      match get_content_range(&response) {
-        Ok(length) => reader.file_size = length,
-        Err(msg) => return Err(msg),
-      }
-    }
+    match get_content_range(&response) {
+      Ok(length) => reader.file_size = length,
+      Err(msg) => return Err(msg),
+    };
 
     match loaded_size {
       0 => Err("Bad request range".to_string()),
       _ => {
-        let mut body = vec![0; loaded_size as usize];
-        try!(Read::read_exact(&mut response, &mut body).map_err(|e| e.to_string()));
-
+        let body_data =
+          match response.body().concat2().wait() {
+            Ok(body) => body.to_vec(),
+            Err(_msg) => vec![],
+          };
         reader.position = reader.position + loaded_size as u64;
-        Ok(Some(body))
+        Ok(Some(body_data))
       }
     }
 }
@@ -158,9 +166,6 @@ impl Reader for HttpReader {
   }
 
   fn read(&mut self, size: usize) -> Result<Vec<u8>, String> {
-    let mut data = vec![0; size];
-    let loaded_size = size;
-
     match load_data(self, size) {
       Err(msg) => Err(msg),
       Ok(some_data) => {
