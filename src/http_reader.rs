@@ -36,8 +36,8 @@ fn get_data(filename: &String, range: Vec<ByteRangeSpec>) -> Result<Response, Er
   let mut req = Request::new(Method::Get, uri);
   req.headers_mut().set(Bytes(range));
 
-  let work = client.request(req).and_then(|r| {
-    Ok(r)
+  let work = client.request(req).and_then(|res| {
+    Ok(res)
   });
   core.run(work)
 }
@@ -103,16 +103,15 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
   info!("make HTTP request with request {:?} bytes", size);
 
   match reader.file_size {
-      Some(size) => {
-        if reader.position >= size {
-          return Ok(None)
-        }
-      },
-      None => (),
+    Some(size) => {
+      if reader.position >= size {
+        return Ok(None)
+      }
+    },
+    None => (),
   };
 
   let range = get_data_range(reader.position, size);
-
   let response = get_data(&reader.filename, range).unwrap();
 
   let loaded_size =
@@ -134,6 +133,7 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
           Ok(body) => body.to_vec(),
           Err(_msg) => vec![],
         };
+
       reader.position = reader.position + loaded_size as u64;
       Ok(Some(body_data))
     }
@@ -186,8 +186,8 @@ impl Reader for HttpReader {
       Ok(some_data) => {
         match some_data {
             Some(data) => {
-              // println!("{:?}", data);
-              match data.len() == size {
+              // println!("{:?} vs {:?}", data.len(), size);
+              match data.len() >= size {
                 true => Ok(data),
                 false => Ok(Vec::new()),
               }
