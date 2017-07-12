@@ -115,46 +115,29 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
 
   let response = get_data(&reader.filename, range).unwrap();
 
-
-  // let core = Core::new().unwrap();
-  // let client = Client::new(&core.handle());
-  // let uri = reader.filename.parse().unwrap();
-
-  // let mut req = Request::new(Method::Get, uri);
-  // req.headers_mut().set(Bytes(range));
-
-  // let response =
-  //   client
-  //   .request(req).wait().unwrap();
-
-  // let work = client.request(req).and_then(|r| {
-  //   // Ok(r)
-  // });
-  // let response = core.run(work);
-
-    let loaded_size =
-      match get_content_length(&response) {
-          Some(content_length) => content_length,
-          None => return Err("Missing content_length".to_string()),
-      };
-
-    match get_content_range(&response) {
-      Ok(length) => reader.file_size = length,
-      Err(msg) => return Err(msg),
+  let loaded_size =
+    match get_content_length(&response) {
+        Some(content_length) => content_length,
+        None => return Err("Missing content_length".to_string()),
     };
 
-    match loaded_size {
-      0 => Err("Bad request range".to_string()),
-      _ => {
-        let body_data =
-          match response.body().concat2().wait() {
-            Ok(body) => body.to_vec(),
-            Err(_msg) => vec![],
-          };
-        reader.position = reader.position + loaded_size as u64;
-        Ok(Some(body_data))
-      }
+  match get_content_range(&response) {
+    Ok(length) => reader.file_size = length,
+    Err(msg) => return Err(msg),
+  };
+
+  match loaded_size {
+    0 => Err("Bad request range".to_string()),
+    _ => {
+      let body_data =
+        match response.body().concat2().wait() {
+          Ok(body) => body.to_vec(),
+          Err(_msg) => vec![],
+        };
+      reader.position = reader.position + loaded_size as u64;
+      Ok(Some(body_data))
     }
+  }
 }
 
 impl Reader for HttpReader {
@@ -203,7 +186,7 @@ impl Reader for HttpReader {
       Ok(some_data) => {
         match some_data {
             Some(data) => {
-              println!("{:?}", data);
+              // println!("{:?}", data);
               match data.len() == size {
                 true => Ok(data),
                 false => Ok(Vec::new()),
