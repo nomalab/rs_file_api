@@ -1,29 +1,47 @@
 
 use std::io::SeekFrom;
 
-use hyper;
 use hyper::Error;
-use hyper::client::{Client, Response};
+use hyper::client::Response;
 use hyper::{Request, Method};
 use hyper::header::ByteRangeSpec;
 use hyper::header::ByteRangeSpec::FromTo;
 use hyper::header::Range::Bytes;
 use hyper::header::{ContentLength, ContentRange, ContentRangeSpec};
 
-use futures::Future;
-use futures::stream::Stream;
+use futures::{Future, Stream};
+use hyper::Client;
 use tokio_core::reactor::Core;
-
 use reader::Reader;
 use buffer::Buffer;
 
 fn get_head(filename: &String) -> Result<Response, Error> {
-  let core = Core::new().unwrap();
+  let mut core = Core::new()?;
   let client = Client::new(&core.handle());
-  let uri = filename.parse().unwrap();
+
+  let uri = filename.parse()?;
   let req = Request::new(Method::Head, uri);
-  client.request(req).wait()
+
+  let work = client.request(req).and_then(|r| {
+    Ok(r)
+  });
+  core.run(work)
 }
+
+fn get_data(filename: &String, range: Vec<ByteRangeSpec>) -> Result<Response, Error> {
+  let mut core = Core::new()?;
+  let client = Client::new(&core.handle());
+
+  let uri = filename.parse()?;
+  let mut req = Request::new(Method::Get, uri);
+  req.headers_mut().set(Bytes(range));
+
+  let work = client.request(req).and_then(|r| {
+    Ok(r)
+  });
+  core.run(work)
+}
+
 
 fn get_content_length(response: &Response) -> Option<u64> {
   match response.headers().get::<ContentLength>() {
@@ -52,6 +70,7 @@ fn get_content_range(response: &Response) -> Result<Option<u64>, String> {
   }
 }
 
+#[derive(Debug)]
 pub struct HttpReader {
   pub filename: String,
   pub file_size: Option<u64>,
@@ -61,8 +80,14 @@ pub struct HttpReader {
 
 pub fn exists(filename: &String) -> bool {
   match get_head(filename) {
-    Ok(resp) => resp.status() == hyper::Ok,
-    Err(_) => false
+    Ok(resp) => {
+      println!("RESP {:?}", resp.status());
+      resp.status().is_success()
+    },
+    Err(msg) => {
+      println!("{:?}", msg);
+      false
+    }
   }
 }
 
@@ -88,17 +113,24 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
 
   let range = get_data_range(reader.position, size);
 
+  let response = get_data(&reader.filename, range).unwrap();
 
-  let core = Core::new().unwrap();
-  let client = Client::new(&core.handle());
-  let uri = reader.filename.parse().unwrap();
 
-  let mut req = Request::new(Method::Get, uri);
-  req.headers_mut().set(Bytes(range));
+  // let core = Core::new().unwrap();
+  // let client = Client::new(&core.handle());
+  // let uri = reader.filename.parse().unwrap();
 
-  let response =
-    client
-    .request(req).wait().unwrap();
+  // let mut req = Request::new(Method::Get, uri);
+  // req.headers_mut().set(Bytes(range));
+
+  // let response =
+  //   client
+  //   .request(req).wait().unwrap();
+
+  // let work = client.request(req).and_then(|r| {
+  //   // Ok(r)
+  // });
+  // let response = core.run(work);
 
     let loaded_size =
       match get_content_length(&response) {

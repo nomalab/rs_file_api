@@ -1,16 +1,16 @@
 [package]
 name = "file_api"
-version = "0.1.5"
+version = "0.2.0"
 authors = ["Marc-Antoine Arnaud <marc.antoine@nomalab.com>"]
 description = """
 Library to abstract read. Based on prefix URL, it select the adapted reader (HTTP or local file system).
 """
 license = "MIT"
 repository = "https://github.com/nomalab/rs_file_api"
-documentation = "https://github.com/nomalab/rs_file_api/blob/master/README.md"
+documentation = "https://docs.rs/file_api"
 
 [dependencies]
 log = "0.3.6"
-futures = "0.1.10"
+futures = "0.1.14"
 tokio-core = "0.1.8"
 hyper = "0.11.1"

@@ -10,6 +10,7 @@ use std::io::SeekFrom;
 use reader::Reader;
 use buffer::Buffer;
 
+#[derive(Debug)]
 pub struct FileReader {
   pub filename: String,
   pub position: u64,
