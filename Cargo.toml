@@ -1,6 +1,6 @@
 [package]
 name = "file_api"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Marc-Antoine Arnaud <marc.antoine@nomalab.com>"]
 description = """
 Library to abstract read. Based on prefix URL, it select the adapted reader (HTTP or local file system).
