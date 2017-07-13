@@ -165,6 +165,9 @@ fn http_read_buffered_data() {
 
     let position = reader.get_position().unwrap();
     assert_eq!(position, 8);
+
+    let new_position = reader.seek(SeekFrom::Current(4));
+    assert_eq!(new_position, Ok(12));
   }
 
   mock_server("8884", responses, &mut check);

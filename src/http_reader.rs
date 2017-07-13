@@ -240,14 +240,23 @@ impl Reader for HttpReader {
     match seek {
       SeekFrom::Current(offset) => {
         self.position = self.position + offset as u64;
+        if self.buffer.size.is_some() {
+          self.buffer.position = self.position;
+        }
       },
       SeekFrom::Start(offset) => {
         self.position = offset;
+        if self.buffer.size.is_some() {
+          self.buffer.position = self.position;
+        }
       },
       SeekFrom::End(offset) => {
         match self.file_size {
           Some(size) => {
             self.position = size - offset as u64;
+            if self.buffer.size.is_some() {
+              self.buffer.position = self.position;
+            }
           },
           None => return Err("Missing file size".to_string())
         }
