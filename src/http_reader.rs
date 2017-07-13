@@ -181,24 +181,48 @@ impl Reader for HttpReader {
   }
 
   fn read(&mut self, size: usize) -> Result<Vec<u8>, String> {
-    match load_data(self, size) {
-      Err(msg) => Err(msg),
-      Ok(some_data) => {
-        match some_data {
-            Some(data) => {
-              // println!("{:?} vs {:?}", data.len(), size);
-              match data.len() >= size {
-                true => Ok(data),
-                false => Ok(Vec::new()),
+    if self.buffer.get_cached_size() >= size {
+      Ok(self.buffer.get_data(size))
+    } else {
+
+      match self.buffer.size {
+        Some(buffer_size) => {
+          match load_data(self, buffer_size) {
+            Err(msg) => Err(msg),
+            Ok(some_data) => {
+              match some_data {
+                  Some(data) => {
+                    self.buffer.append_data(&data.to_vec());
+                    Ok(self.buffer.get_data(size))
+                  },
+                  None => Ok(Vec::new()),
               }
-            },
-            None => Ok(Vec::new()),
+            }
+          }
+        },
+        None => {
+          match load_data(self, size) {
+            Err(msg) => Err(msg),
+            Ok(some_data) => {
+              match some_data {
+                  Some(data) => {
+                    // println!("{:?} vs {:?}", data.len(), size);
+                    match data.len() >= size {
+                      true => Ok(data),
+                      false => Ok(Vec::new()),
+                    }
+                  },
+                  None => Ok(Vec::new()),
+              }
+            }
+          }
         }
-      }
+      } 
     }
   }
 
   fn seek(&mut self, seek: SeekFrom) -> Result<u64, String> {
+    self.buffer.reset();
     match seek {
       SeekFrom::Current(offset) => {
         self.position = self.position + offset as u64;
