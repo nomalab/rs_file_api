@@ -42,7 +42,6 @@ fn get_data(filename: &String, range: Vec<ByteRangeSpec>) -> Result<Response, Er
   core.run(work)
 }
 
-
 fn get_content_length(response: &Response) -> Option<u64> {
   match response.headers().get::<ContentLength>() {
     Some(length) => Some(**length as u64),
@@ -81,11 +80,9 @@ pub struct HttpReader {
 pub fn exists(filename: &String) -> bool {
   match get_head(filename) {
     Ok(resp) => {
-      println!("RESP {:?}", resp.status());
       resp.status().is_success()
     },
-    Err(msg) => {
-      println!("{:?}", msg);
+    Err(_msg) => {
       false
     }
   }
@@ -102,16 +99,22 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
 
   info!("make HTTP request with request {:?} bytes", size);
 
+  let position =
+    match reader.buffer.size {
+      Some(_) => reader.buffer.position,
+      None => reader.position,
+    };
+
   match reader.file_size {
     Some(size) => {
-      if reader.position >= size {
+      if position >= size {
         return Ok(None)
       }
     },
     None => (),
   };
 
-  let range = get_data_range(reader.position, size);
+  let range = get_data_range(position, size);
   let response = get_data(&reader.filename, range).unwrap();
 
   let loaded_size =
@@ -134,7 +137,15 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
           Err(_msg) => vec![],
         };
 
-      reader.position = reader.position + loaded_size as u64;
+      let new_position = position + loaded_size as u64;
+      match reader.buffer.size {
+        Some(_) => {
+          reader.buffer.position = new_position;
+        },
+        None => {
+          reader.position = new_position;
+        }
+      };
       Ok(Some(body_data))
     }
   }
@@ -182,20 +193,21 @@ impl Reader for HttpReader {
 
   fn read(&mut self, size: usize) -> Result<Vec<u8>, String> {
     if self.buffer.get_cached_size() >= size {
+      self.position += size as u64;
       Ok(self.buffer.get_data(size))
     } else {
-
       match self.buffer.size {
         Some(buffer_size) => {
           match load_data(self, buffer_size) {
             Err(msg) => Err(msg),
             Ok(some_data) => {
               match some_data {
-                  Some(data) => {
-                    self.buffer.append_data(&data.to_vec());
-                    Ok(self.buffer.get_data(size))
-                  },
-                  None => Ok(Vec::new()),
+                Some(data) => {
+                  self.buffer.append_data(&data.to_vec());
+                  self.position += size as u64;
+                  Ok(self.buffer.get_data(size))
+                },
+                None => Ok(Vec::new()),
               }
             }
           }
@@ -205,14 +217,16 @@ impl Reader for HttpReader {
             Err(msg) => Err(msg),
             Ok(some_data) => {
               match some_data {
-                  Some(data) => {
-                    // println!("{:?} vs {:?}", data.len(), size);
-                    match data.len() >= size {
-                      true => Ok(data),
-                      false => Ok(Vec::new()),
-                    }
-                  },
-                  None => Ok(Vec::new()),
+                Some(data) => {
+                  // println!("{:?} vs {:?}", data.len(), size);
+                  match data.len() >= size {
+                    true => {
+                      Ok(data)
+                    },
+                    false => Ok(Vec::new()),
+                  }
+                },
+                None => Ok(Vec::new()),
               }
             }
           }
