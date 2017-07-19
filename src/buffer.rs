@@ -34,7 +34,7 @@ impl Buffer {
   }
 
   pub fn reset(&mut self) {
-    self.buffer = Vec::new();
+    self.buffer = vec!();
     self.position = 0;
   }
 }

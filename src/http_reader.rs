@@ -236,21 +236,27 @@ impl Reader for HttpReader {
   }
 
   fn seek(&mut self, seek: SeekFrom) -> Result<u64, String> {
-    self.buffer.reset();
     match seek {
       SeekFrom::Current(offset) => {
         self.position = self.position + offset as u64;
         if self.buffer.size.is_some() {
           self.buffer.position = self.position;
+          if offset > 0 && self.buffer.get_cached_size() > offset as usize {
+            let _skiped_data = self.buffer.get_data(offset as usize);
+          } else {
+            self.buffer.buffer = vec![];
+          }
         }
       },
       SeekFrom::Start(offset) => {
+        self.buffer.reset();
         self.position = offset;
         if self.buffer.size.is_some() {
           self.buffer.position = self.position;
         }
       },
       SeekFrom::End(offset) => {
+        self.buffer.reset();
         match self.file_size {
           Some(size) => {
             self.position = size - offset as u64;
