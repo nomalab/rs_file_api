@@ -3,6 +3,7 @@
 pub struct Buffer {
   pub size: Option<usize>,
   pub position: u64,
+  pub max_end_position: Option<u64>,
   pub buffer: Vec<u8>
 }
 
@@ -11,6 +12,7 @@ impl Buffer {
     Buffer{
       size: None,
       position: 0,
+      max_end_position: None,
       buffer: Vec::new()
     }
   }

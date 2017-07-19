@@ -229,3 +229,28 @@ fn http_seek() {
 
   mock_server("8886", responses, &mut check);
 }
+
+#[test]
+fn http_read_and_return_different_buffer_size() {
+  let responses = vec![
+    "HTTP/1.1 200 OK\r\nContent-Length: 19000\r\n\r\n".to_string(),
+    "HTTP/1.1 200 OK\r\nContent-Length: 120\r\nContent-Range: bytes 0-12/19000\r\n\r\nsomedatanext".to_string(),
+  ];
+
+  fn check() {
+    let filename = "http://127.0.0.1:8887/data".to_string();
+    let mut reader : HttpReader = Reader::open(&filename);
+
+    reader.set_cache_size(Some(100));
+    assert_next_data!(reader, "somedata");
+
+    assert_position!(reader, 8);
+    assert_buffer_position!(reader, 12);
+
+    assert_next_data!(reader, "next");
+    assert_position!(reader, 12);
+    assert_buffer_position!(reader, 12);
+  }
+
+  mock_server("8887", responses, &mut check);
+}

@@ -1,7 +1,8 @@
 
 use std::io::SeekFrom;
+use std::cmp;
 
-use hyper::Error;
+use hyper::{Error, StatusCode};
 use hyper::client::Response;
 use hyper::{Request, Method};
 use hyper::header::ByteRangeSpec;
@@ -88,9 +89,21 @@ pub fn exists(filename: &String) -> bool {
   }
 }
 
-fn get_data_range(position: u64, size: usize) -> Vec<ByteRangeSpec> {
+fn get_data_range(position: u64, size: usize, max_end_position: Option<u64>) -> Vec<ByteRangeSpec> {
   let start = position;
-  let end = position + (size - 1) as u64;
+  let end = 
+    match (position, size) {
+      (0, 0) => 0,
+      (_, _) => {
+        match max_end_position {
+          Some(max) => {
+            let max_size = max - position;
+            position + cmp::min((size - 1) as u64, max_size)
+          },
+          None => position + (size - 1) as u64,
+        }
+      },
+    };
 
   vec![FromTo(start, end)]
 }
@@ -114,17 +127,26 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
     None => (),
   };
 
-  let range = get_data_range(position, size);
+
+  let range = get_data_range(position, size, reader.buffer.max_end_position);
   let response = get_data(&reader.filename, range).unwrap();
+
+  if response.status() != StatusCode::Ok {
+    return Err("Bad request".to_string());
+  }
 
   let loaded_size =
     match get_content_length(&response) {
-        Some(content_length) => content_length,
-        None => return Err("Missing content_length".to_string()),
+      Some(content_length) => {
+        content_length
+      },
+      None => return Err("Missing content length".to_string()),
     };
 
   match get_content_range(&response) {
-    Ok(length) => reader.file_size = length,
+    Ok(length) => {
+      reader.file_size = length
+    },
     Err(msg) => return Err(msg),
   };
 
@@ -137,7 +159,7 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
           Err(_msg) => vec![],
         };
 
-      let new_position = position + loaded_size as u64;
+      let new_position = position + body_data.len() as u64;
       match reader.buffer.size {
         Some(_) => {
           reader.buffer.position = new_position;
@@ -165,6 +187,7 @@ impl Reader for HttpReader {
           buffer: Buffer {
             size: None,
             position: 0,
+            max_end_position: None,
             buffer: vec![]
           }
         }
@@ -182,6 +205,14 @@ impl Reader for HttpReader {
 
   fn set_cache_size(&mut self, cache_size: Option<usize>) {
     self.buffer.size = cache_size;
+  }
+
+  fn get_max_end_position(&self) -> Option<u64> {
+    self.buffer.max_end_position
+  }
+
+  fn set_max_end_position(&mut self, max_end_position: Option<u64>) {
+    self.buffer.max_end_position = max_end_position;
   }
 
   fn get_size(&mut self) -> Result<u64, String> {

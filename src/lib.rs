@@ -77,6 +77,38 @@ impl reader::Reader for MainReader {
     panic!("no reader configured");
   }
 
+  fn get_max_end_position(&self) -> Option<u64> {
+    match self.http_reader {
+      Some(ref reader) => {
+        return reader.get_max_end_position()
+      },
+      None => {},
+    }
+    match self.file_reader {
+      Some(ref reader) => {
+        return reader.get_max_end_position()
+      },
+      None => {},
+    }
+    panic!("no reader configured");
+  }
+
+  fn set_max_end_position(&mut self, max_end_position: Option<u64>) {
+    match self.http_reader {
+      Some(ref mut reader) => {
+        return reader.set_max_end_position(max_end_position)
+      },
+      None => {},
+    }
+    match self.file_reader {
+      Some(ref mut reader) => {
+        return reader.set_max_end_position(max_end_position)
+      },
+      None => {},
+    }
+    panic!("no reader configured");
+  }
+
   fn get_position(&mut self) -> Result<u64, String> {
     match self.http_reader {
       Some(ref mut reader) => {

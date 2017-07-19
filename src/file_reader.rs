@@ -34,6 +34,7 @@ impl Reader for FileReader {
           buffer: Buffer {
             size: None,
             position: 0,
+            max_end_position: None,
             buffer: vec![]
           }
         },
@@ -50,6 +51,14 @@ impl Reader for FileReader {
 
   fn set_cache_size(&mut self, cache_size: Option<usize>) {
     self.buffer.size = cache_size;
+  }
+
+  fn get_max_end_position(&self) -> Option<u64> {
+    self.buffer.max_end_position
+  }
+
+  fn set_max_end_position(&mut self, max_end_position: Option<u64>) {
+    self.buffer.max_end_position = max_end_position;
   }
 
   fn get_size(&mut self) -> Result<u64, String> {
