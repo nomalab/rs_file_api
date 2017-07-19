@@ -240,11 +240,10 @@ impl Reader for HttpReader {
       SeekFrom::Current(offset) => {
         self.position = self.position + offset as u64;
         if self.buffer.size.is_some() {
-          self.buffer.position = self.position;
           if offset > 0 && self.buffer.get_cached_size() > offset as usize {
             let _skiped_data = self.buffer.get_data(offset as usize);
           } else {
-            self.buffer.buffer = vec![];
+            self.buffer.reset();
           }
         }
       },

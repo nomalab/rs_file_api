@@ -51,6 +51,33 @@ fn mock_server(port: &str, messages: Vec<String>, tester: &mut FnMut()) {
   handler.join().unwrap();
 }
 
+macro_rules! assert_position {
+  ($reader:expr, $position:expr) => {
+    {
+      let position = $reader.get_position().unwrap();
+      assert_eq!(position, $position);
+    }
+  };
+}
+macro_rules! assert_buffer_position {
+  ($reader:expr, $position:expr) => {
+    {
+      assert_eq!($reader.buffer.position, $position);
+    }
+  };
+}
+macro_rules! assert_next_data {
+  ($reader:expr, $string_data:expr) => {
+    {
+      let length = $string_data.len();
+      let data = $reader.read(length).unwrap();
+      assert_eq!(data.len(), length);
+      let data_str = std::str::from_utf8(&data).unwrap();
+      assert!(data_str == $string_data);
+    }
+  };
+}
+
 #[test]
 fn http_exists() {
   let responses = vec![
@@ -109,24 +136,11 @@ fn http_read_data() {
     let filename = "http://127.0.0.1:8883/data".to_string();
     let mut reader : HttpReader = Reader::open(&filename);
 
-    let position = reader.get_position().unwrap();
-    assert_eq!(position, 0);
-
-    let data = reader.read(4).unwrap();
-    assert_eq!(data.len(), 4);
-    let data_str = std::str::from_utf8(&data).unwrap();
-    assert!(data_str == "some".to_string());
-
-    let position = reader.get_position().unwrap();
-    assert_eq!(position, 4);
-
-    let data = reader.read(4).unwrap();
-    assert_eq!(data.len(), 4);
-    let data_str = std::str::from_utf8(&data).unwrap();
-    assert!(data_str == "data".to_string());
-
-    let position = reader.get_position().unwrap();
-    assert_eq!(position, 8);
+    assert_position!(reader, 0);
+    assert_next_data!(reader, "some".to_string());
+    assert_position!(reader, 4);
+    assert_next_data!(reader, "data".to_string());
+    assert_position!(reader, 8);
   }
 
   mock_server("8883", responses, &mut check);
@@ -136,37 +150,33 @@ fn http_read_data() {
 fn http_read_buffered_data() {
   let responses = vec![
     "HTTP/1.1 200 OK\r\nContent-Length: 19\r\n\r\n".to_string(),
-    "HTTP/1.1 200 OK\r\nContent-Length: 8\r\nContent-Range: bytes 0-7/19\r\n\r\nsomedata".to_string(),
+    "HTTP/1.1 200 OK\r\nContent-Length: 12\r\nContent-Range: bytes 0-11/19\r\n\r\nsomedatanext".to_string(),
   ];
 
   fn check() {
     let filename = "http://127.0.0.1:8884/data".to_string();
     let mut reader : HttpReader = Reader::open(&filename);
 
-    reader.set_cache_size(Some(8));
+    reader.set_cache_size(Some(12));
 
-    let position = reader.get_position().unwrap();
-    assert_eq!(position, 0);
+    assert_position!(reader, 0);
+    assert_buffer_position!(reader, 0);
+    assert_next_data!(reader, "some".to_string());
+    assert_position!(reader, 4);
+    assert_buffer_position!(reader, 12);
+    assert_next_data!(reader, "data".to_string());
+    assert_position!(reader, 8);
+    assert_buffer_position!(reader, 12);
 
-    let data = reader.read(4).unwrap();
-    assert_eq!(data.len(), 4);
-    let data_str = std::str::from_utf8(&data).unwrap();
-    assert!(data_str == "some".to_string());
+    let new_position = reader.seek(SeekFrom::Current(2));
+    assert_eq!(new_position, Ok(10));
 
-    let position = reader.get_position().unwrap();
-    assert_eq!(position, 4);
+    assert_position!(reader, 10);
+    assert_buffer_position!(reader, 12);
 
-
-    let data = reader.read(4).unwrap();
-    assert_eq!(data.len(), 4);
-    let data_str = std::str::from_utf8(&data).unwrap();
-    assert!(data_str == "data".to_string());
-
-    let position = reader.get_position().unwrap();
-    assert_eq!(position, 8);
-
-    let new_position = reader.seek(SeekFrom::Current(4));
-    assert_eq!(new_position, Ok(12));
+    assert_next_data!(reader, "xt".to_string());
+    assert_position!(reader, 12);
+    assert_buffer_position!(reader, 12);
   }
 
   mock_server("8884", responses, &mut check);
@@ -192,26 +202,11 @@ fn http_read_and_seek_buffered_data() {
     let new_position = reader.seek(SeekFrom::Current(2));
     assert_eq!(new_position, Ok(4));
 
-    let position = reader.get_position().unwrap();
-    assert_eq!(position, 4);
-
-    let data = reader.read(4).unwrap();
-    assert_eq!(data.len(), 4);
-    let data_str = std::str::from_utf8(&data).unwrap();
-    assert!(data_str == "data".to_string());
-
-    let position = reader.get_position().unwrap();
-    assert_eq!(position, 8);
-
-
-    let data = reader.read(4).unwrap();
-    assert_eq!(data.len(), 4);
-    let data_str = std::str::from_utf8(&data).unwrap();
-    assert!(data_str == "next".to_string());
-
-    let position = reader.get_position().unwrap();
-    assert_eq!(position, 12);
-
+    assert_position!(reader, 4);
+    assert_next_data!(reader, "data".to_string());
+    assert_position!(reader, 8);
+    assert_next_data!(reader, "next".to_string());
+    assert_position!(reader, 12);
   }
 
   mock_server("8885", responses, &mut check);
@@ -226,11 +221,10 @@ fn http_seek() {
     let filename = "http://127.0.0.1:8886/data".to_string();
     let mut reader : HttpReader = Reader::open(&filename);
 
-    let position = reader.get_position().unwrap();
-    assert_eq!(position, 0);
-
+    assert_position!(reader, 0);
     let position = reader.seek(SeekFrom::Current(4)).unwrap();
     assert_eq!(position, 4);
+    assert_position!(reader, 4);
   }
 
   mock_server("8886", responses, &mut check);
