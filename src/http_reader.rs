@@ -153,8 +153,9 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
   match loaded_size {
     0 => Err("Bad request range".to_string()),
     _ => {
+      let mut core = Core::new().unwrap();
       let body_data =
-        match response.body().concat2().wait() {
+        match core.run(response.body().concat2()) {
           Ok(body) => body.to_vec(),
           Err(_msg) => vec![],
         };
