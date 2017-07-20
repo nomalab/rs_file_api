@@ -29,7 +29,13 @@ fn get_head(filename: &String) -> Result<Response, Error> {
   core.run(work)
 }
 
-fn get_data(filename: &String, range: Vec<ByteRangeSpec>) -> Result<Response, Error> {
+#[derive(Debug)]
+struct ResponseData {
+  body_data: Vec<u8>,
+  file_size: u64
+}
+
+fn get_data(filename: &String, range: Vec<ByteRangeSpec>) -> Result<ResponseData, Error> {
   let mut core = Core::new()?;
   let client = Client::new(&core.handle());
 
@@ -40,7 +46,24 @@ fn get_data(filename: &String, range: Vec<ByteRangeSpec>) -> Result<Response, Er
   let work = client.request(req).and_then(|res| {
     Ok(res)
   });
-  core.run(work)
+  let response = core.run(work).unwrap();
+
+  if response.status() != StatusCode::Ok {
+    return Err(Error::Status);
+  }
+
+  let file_size =
+    match get_content_range(&response) {
+      Ok(length) => length.unwrap(),
+      Err(_msg) => return Err(Error::Header),
+    };
+
+  let body_data = core.run(response.body().concat2()).unwrap();
+
+  Ok(ResponseData{
+    body_data: body_data.to_vec(),
+    file_size: file_size
+  })
 }
 
 fn get_content_length(response: &Response) -> Option<u64> {
@@ -127,51 +150,19 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
     None => (),
   };
 
-
   let range = get_data_range(position, size, reader.buffer.max_end_position);
   let response = get_data(&reader.filename, range).unwrap();
 
-  if response.status() != StatusCode::Ok {
-    return Err("Bad request".to_string());
-  }
-
-  let loaded_size =
-    match get_content_length(&response) {
-      Some(content_length) => {
-        content_length
-      },
-      None => return Err("Missing content length".to_string()),
-    };
-
-  match get_content_range(&response) {
-    Ok(length) => {
-      reader.file_size = length
+  let new_position = position + response.body_data.len() as u64;
+  match reader.buffer.size {
+    Some(_) => {
+      reader.buffer.position = new_position;
     },
-    Err(msg) => return Err(msg),
-  };
-
-  match loaded_size {
-    0 => Err("Bad request range".to_string()),
-    _ => {
-      let mut core = Core::new().unwrap();
-      let body_data =
-        match core.run(response.body().concat2()) {
-          Ok(body) => body.to_vec(),
-          Err(_msg) => vec![],
-        };
-
-      let new_position = position + body_data.len() as u64;
-      match reader.buffer.size {
-        Some(_) => {
-          reader.buffer.position = new_position;
-        },
-        None => {
-          reader.position = new_position;
-        }
-      };
-      Ok(Some(body_data))
+    None => {
+      reader.position = new_position;
     }
-  }
+  };
+  Ok(Some(response.body_data))
 }
 
 impl Reader for HttpReader {
