@@ -1,27 +1,42 @@
 
-use std::io::SeekFrom;
-use std::cmp;
+use futures::{Future, Stream, future};
 
 use hyper::{Error, StatusCode};
+use hyper::{Client, Request, Method};
 use hyper::client::Response;
-use hyper::{Request, Method};
 use hyper::header::ByteRangeSpec;
 use hyper::header::ByteRangeSpec::FromTo;
 use hyper::header::Range::Bytes;
 use hyper::header::{ContentLength, ContentRange, ContentRangeSpec};
+use hyper_tls::HttpsConnector;
 
-use futures::{Future, Stream};
-use hyper::Client;
 use tokio_core::reactor::Core;
 use reader::Reader;
 use buffer::Buffer;
 
+use std::io::SeekFrom;
+use std::cmp;
+use std::time::Instant;
+
 fn get_head(filename: &String) -> Result<Response, Error> {
-  let mut core = Core::new()?;
-  let client = Client::new(&core.handle());
+  let mut core = Core::new().unwrap();
+
+  let client =
+    Client::configure()
+    .connector(HttpsConnector::new(3, &core.handle()).unwrap())
+    .build(&core.handle());
 
   let uri = filename.parse()?;
-  let req = Request::new(Method::Head, uri);
+
+  let req =
+    if filename.contains("s3.amazonaws.com") {
+      let mut req = Request::new(Method::Get, uri);
+      let range = vec![FromTo(0, 0)];
+      req.headers_mut().set(Bytes(range));
+      req
+    } else {
+      Request::new(Method::Head, uri)
+    };
 
   let work = client.request(req).and_then(|r| {
     Ok(r)
@@ -36,19 +51,25 @@ struct ResponseData {
 }
 
 fn get_data(filename: &String, range: Vec<ByteRangeSpec>) -> Result<ResponseData, Error> {
-  let mut core = Core::new()?;
-  let client = Client::new(&core.handle());
+  let mut core = Core::new().unwrap();
+  let client = Client::configure()
+        .connector(HttpsConnector::new(1, &core.handle()).unwrap())
+        .build(&core.handle());
 
   let uri = filename.parse()?;
+
   let mut req = Request::new(Method::Get, uri);
   req.headers_mut().set(Bytes(range));
 
   let work = client.request(req).and_then(|res| {
     Ok(res)
   });
-  let response = core.run(work).unwrap();
 
-  if response.status() != StatusCode::Ok {
+  let response = core.run(work).unwrap();
+  let status = response.status();
+
+  if !(status == StatusCode::Ok || status == StatusCode::PartialContent) {
+    println!("ERROR {:?}", response);
     return Err(Error::Status);
   }
 
@@ -58,7 +79,13 @@ fn get_data(filename: &String, range: Vec<ByteRangeSpec>) -> Result<ResponseData
       Err(_msg) => return Err(Error::Header),
     };
 
-  let body_data = core.run(response.body().concat2()).unwrap();
+  let body =
+    response.body().fold(Vec::new(), |mut acc, chunk| {
+      acc.extend_from_slice(&*chunk);
+      future::ok::<_, Error>(acc)
+    });
+
+  let body_data = body.wait().unwrap();
 
   Ok(ResponseData{
     body_data: body_data.to_vec(),
@@ -132,7 +159,7 @@ fn get_data_range(position: u64, size: usize, max_end_position: Option<u64>) -> 
 }
 
 fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, String> {
-
+  let start = Instant::now();
   info!("make HTTP request with request {:?} bytes", size);
 
   let position =
@@ -151,8 +178,13 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
   };
 
   let range = get_data_range(position, size, reader.buffer.max_end_position);
-  let response = get_data(&reader.filename, range).unwrap();
+  let response = get_data(&reader.filename, range).map_err(|e| e.to_string()).unwrap();
 
+  let elapsed = start.elapsed();
+  if elapsed.as_secs() > 0 {
+    println!("WARNING: Request duration {} seconds", elapsed.as_secs());
+  }
+  
   let new_position = position + response.body_data.len() as u64;
   match reader.buffer.size {
     Some(_) => {
@@ -169,7 +201,7 @@ impl Reader for HttpReader {
   fn open(filename: &String) -> HttpReader {
     match get_head(filename) {
       Err(msg) => panic!(msg.to_string()),
-      Ok(response) => {      
+      Ok(response) => {
         let content_length = get_content_length(&response);
 
         HttpReader {

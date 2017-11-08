@@ -5,6 +5,7 @@
 extern crate log;
 extern crate futures;
 extern crate hyper;
+extern crate hyper_tls;
 extern crate tokio_core;
 
 pub mod buffer;
