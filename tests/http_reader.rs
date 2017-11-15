@@ -1,6 +1,5 @@
 extern crate file_api;
 extern crate hyper;
-extern crate tokio_core;
 extern crate futures;
 
 use std::thread;

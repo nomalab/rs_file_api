@@ -1,16 +1,15 @@
 
-use futures::{Future, Stream, future};
-
-use hyper::{Error, StatusCode};
-use hyper::{Client, Request, Method};
-use hyper::client::Response;
+use hyper::StatusCode;
 use hyper::header::ByteRangeSpec;
 use hyper::header::ByteRangeSpec::FromTo;
 use hyper::header::Range::Bytes;
 use hyper::header::{ContentLength, ContentRange, ContentRangeSpec};
-use hyper_tls::HttpsConnector;
 
-use tokio_core::reactor::Core;
+use reqwest;
+use reqwest::Client;
+use reqwest::Error;
+use reqwest::header;
+
 use reader::Reader;
 use buffer::Buffer;
 
@@ -18,30 +17,22 @@ use std::io::SeekFrom;
 use std::cmp;
 use std::time::Instant;
 
-fn get_head(filename: &String) -> Result<Response, Error> {
-  let mut core = Core::new().unwrap();
+fn get_head(filename: &String) -> Result<reqwest::Response, Error> {
+  if filename.contains("s3.amazonaws.com") {
+    let range = vec![FromTo(0, 0)];
 
-  let client =
-    Client::configure()
-    .connector(HttpsConnector::new(3, &core.handle()).unwrap())
-    .build(&core.handle());
+    let mut headers = header::Headers::new();
+    headers.set(Bytes(range));
+    let client = reqwest::Client::builder()
+      .default_headers(headers)
+      .build()
+      .unwrap();
 
-  let uri = filename.parse()?;
-
-  let req =
-    if filename.contains("s3.amazonaws.com") {
-      let mut req = Request::new(Method::Get, uri);
-      let range = vec![FromTo(0, 0)];
-      req.headers_mut().set(Bytes(range));
-      req
-    } else {
-      Request::new(Method::Head, uri)
-    };
-
-  let work = client.request(req).and_then(|r| {
-    Ok(r)
-  });
-  core.run(work)
+    client.get(filename).send()
+  } else {
+    let client = Client::new();
+    client.head(filename).send()
+  }
 }
 
 #[derive(Debug)]
@@ -50,57 +41,46 @@ struct ResponseData {
   file_size: u64
 }
 
-fn get_data(filename: &String, range: Vec<ByteRangeSpec>) -> Result<ResponseData, Error> {
-  let mut core = Core::new().unwrap();
-  let client = Client::configure()
-        .connector(HttpsConnector::new(1, &core.handle()).unwrap())
-        .build(&core.handle());
+fn get_data(filename: &String, range: Vec<ByteRangeSpec>) -> Result<ResponseData, String> {
+  let mut headers = header::Headers::new();
+  headers.set(Bytes(range));
+  let client = reqwest::Client::builder()
+    .default_headers(headers)
+    .build()
+    .unwrap();
 
-  let uri = filename.parse()?;
+  let mut response = client.get(filename).send().unwrap();
 
-  let mut req = Request::new(Method::Get, uri);
-  req.headers_mut().set(Bytes(range));
-
-  let work = client.request(req).and_then(|res| {
-    Ok(res)
-  });
-
-  let response = core.run(work).unwrap();
   let status = response.status();
 
   if !(status == StatusCode::Ok || status == StatusCode::PartialContent) {
     println!("ERROR {:?}", response);
-    return Err(Error::Status);
+    return Err("bad response status".to_string());
   }
+
+  let mut body: Vec<u8> = vec![];
+  response.copy_to(&mut body).unwrap();
 
   let file_size =
     match get_content_range(&response) {
       Ok(length) => length.unwrap(),
-      Err(_msg) => return Err(Error::Header),
+      Err(_msg) => return Err("bad response header".to_string()),
     };
 
-  let body =
-    response.body().fold(Vec::new(), |mut acc, chunk| {
-      acc.extend_from_slice(&*chunk);
-      future::ok::<_, Error>(acc)
-    });
-
-  let body_data = body.wait().unwrap();
-
   Ok(ResponseData{
-    body_data: body_data.to_vec(),
+    body_data: body,
     file_size: file_size
   })
 }
 
-fn get_content_length(response: &Response) -> Option<u64> {
+fn get_content_length(response: &reqwest::Response) -> Option<u64> {
   match response.headers().get::<ContentLength>() {
     Some(length) => Some(**length as u64),
     None => None
   }
 }
 
-fn get_content_range(response: &Response) -> Result<Option<u64>, String> {
+fn get_content_range(response: &reqwest::Response) -> Result<Option<u64>, String> {
   match response.headers().get::<ContentRange>() {
     Some(content_range) => {
       match content_range.clone() {
