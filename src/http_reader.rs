@@ -74,9 +74,16 @@ fn get_data(filename: &String, range: Vec<ByteRangeSpec>) -> Result<ResponseData
 }
 
 fn get_content_length(response: &reqwest::Response) -> Option<u64> {
-  match response.headers().get::<ContentLength>() {
-    Some(length) => Some(**length as u64),
-    None => None
+  match response.headers().get::<ContentRange>() {
+    Some(&ContentRange(ContentRangeSpec::Bytes{range: _range, instance_length})) => {
+      instance_length
+    },
+    _ => {
+      match response.headers().get::<ContentLength>() {
+        Some(length) => Some(**length as u64),
+        None => None
+      }
+    },
   }
 }
 
@@ -149,8 +156,9 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
     };
 
   match reader.file_size {
-    Some(size) => {
-      if position >= size {
+    Some(total_file_size) => {
+      if position >= total_file_size {
+        info!("request range out of range: {} > {}", position, total_file_size);
         return Ok(None)
       }
     },
