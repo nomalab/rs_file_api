@@ -190,7 +190,11 @@ impl Reader for HttpReader {
     match get_head(filename) {
       Err(msg) => panic!(msg.to_string()),
       Ok(response) => {
-        let content_length = get_content_length(&response);
+        let content_length =
+          match get_content_range(&response) {
+            Ok(length) => length,
+            _ => get_content_length(&response),
+          };
 
         HttpReader {
           filename: filename.to_string(),
