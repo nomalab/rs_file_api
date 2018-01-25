@@ -233,7 +233,7 @@ fn http_seek() {
 fn http_read_and_return_different_buffer_size() {
   let responses = vec![
     "HTTP/1.1 200 OK\r\nContent-Length: 19000\r\n\r\n".to_string(),
-    "HTTP/1.1 200 OK\r\nContent-Length: 120\r\nContent-Range: bytes 0-12/19000\r\n\r\nsomedatanext".to_string(),
+    "HTTP/1.1 200 OK\r\nContent-Length: 12\r\nContent-Range: bytes 0-12/19000\r\n\r\nsomedatanext".to_string(),
   ];
 
   fn check() {
