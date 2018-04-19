@@ -62,7 +62,7 @@ macro_rules! assert_buffer_position {
 }
 
 macro_rules! assert_next_data {
-    ($reader:expr, $string_data:expr) => {
+    ($reader: expr, $string_data: expr) => {
         let length = $string_data.len();
         let data = $reader.read(length).unwrap();
         assert_eq!(data.len(), length);
@@ -101,7 +101,8 @@ fn http_size() {
 
     fn check() {
         let filename = "http://127.0.0.1:8882".to_string();
-        let mut reader: HttpReader = Reader::open(&filename);
+        let mut reader = HttpReader::new();
+        let _res = reader.open(&filename);
 
         let size = reader.get_size().unwrap();
         assert_eq!(size, 19);
@@ -122,7 +123,8 @@ fn http_read_data() {
 
     fn check() {
         let filename = "http://127.0.0.1:8883/data".to_string();
-        let mut reader: HttpReader = Reader::open(&filename);
+        let mut reader = HttpReader::new();
+        let _res = reader.open(&filename);
 
         assert_position!(reader, 0);
         assert_next_data!(reader, "some".to_string());
@@ -144,7 +146,8 @@ fn http_read_buffered_data() {
 
     fn check() {
         let filename = "http://127.0.0.1:8884/data".to_string();
-        let mut reader: HttpReader = Reader::open(&filename);
+        let mut reader = HttpReader::new();
+        let _res = reader.open(&filename);
 
         reader.set_cache_size(Some(12));
 
@@ -181,7 +184,8 @@ fn http_read_and_seek_buffered_data() {
 
     fn check() {
         let filename = "http://127.0.0.1:8885/data".to_string();
-        let mut reader: HttpReader = Reader::open(&filename);
+        let mut reader = HttpReader::new();
+        let _res = reader.open(&filename);
 
         let new_position = reader.seek(SeekFrom::Current(2));
         assert_eq!(new_position, Ok(2));
@@ -206,7 +210,8 @@ fn http_seek() {
     let responses = vec!["HTTP/1.1 200 OK\r\nContent-Length: 19\r\n\r\n".to_string()];
     fn check() {
         let filename = "http://127.0.0.1:8886/data".to_string();
-        let mut reader: HttpReader = Reader::open(&filename);
+        let mut reader = HttpReader::new();
+        let _res = reader.open(&filename);
 
         assert_position!(reader, 0);
         let position = reader.seek(SeekFrom::Current(4)).unwrap();
@@ -226,7 +231,8 @@ fn http_read_and_return_different_buffer_size() {
 
     fn check() {
         let filename = "http://127.0.0.1:8887/data".to_string();
-        let mut reader: HttpReader = Reader::open(&filename);
+        let mut reader = HttpReader::new();
+        let _res = reader.open(&filename);
 
         reader.set_cache_size(Some(100));
         assert_next_data!(reader, "somedata");

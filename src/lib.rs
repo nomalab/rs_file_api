@@ -21,22 +21,35 @@ pub struct MainReader {
 }
 
 impl reader::Reader for MainReader {
-    fn open(filename: &str) -> MainReader {
+    fn new() -> MainReader {
+        MainReader {
+            http_reader: None,
+            file_reader: None,
+        }
+    }
+
+    fn open(&mut self, filename: &str) -> Result<(), String> {
         match detect_kind(filename) {
             ReaderKind::Http => {
-                let reader: http_reader::HttpReader = reader::Reader::open(filename);
+                let mut reader = http_reader::HttpReader::new();
 
-                MainReader {
-                    http_reader: Some(reader),
-                    file_reader: None,
+                match reader.open(filename) {
+                    Ok(()) => {
+                        self.http_reader = Some(reader);
+                        Ok(())
+                    }
+                    Err(msg) => Err(msg),
                 }
             }
             ReaderKind::File => {
-                let reader: file_reader::FileReader = reader::Reader::open(filename);
+                let mut reader = file_reader::FileReader::new();
 
-                MainReader {
-                    http_reader: None,
-                    file_reader: Some(reader),
+                match reader.open(filename) {
+                    Ok(()) => {
+                        self.file_reader = Some(reader);
+                        Ok(())
+                    }
+                    Err(msg) => Err(msg),
                 }
             }
         }

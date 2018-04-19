@@ -1,7 +1,8 @@
 use std::io::SeekFrom;
 
 pub trait Reader {
-    fn open(filename: &str) -> Self;
+    fn new() -> Self;
+    fn open(&mut self, filename: &str) -> Result<(), String>;
 
     fn get_cache_size(&self) -> Option<usize>;
     fn set_cache_size(&mut self, cache_size: Option<usize>);

@@ -17,7 +17,8 @@ fn file_exists() {
 #[test]
 fn file_size() {
     let filename = "tests/sample_data_file.txt".to_string();
-    let mut reader: FileReader = Reader::open(&filename);
+    let mut reader = FileReader::new();
+    let _res = reader.open(&filename);
 
     let size = reader.get_size().unwrap();
     assert_eq!(size, 20);
@@ -26,7 +27,8 @@ fn file_size() {
 #[test]
 fn file_read_data() {
     let filename = "tests/sample_data_file.txt".to_string();
-    let mut reader: FileReader = Reader::open(&filename);
+    let mut reader = FileReader::new();
+    let _res = reader.open(&filename);
 
     let position = reader.get_position().unwrap();
     assert_eq!(position, 0);
@@ -53,7 +55,8 @@ fn file_read_data() {
 #[test]
 fn file_seek() {
     let filename = "tests/sample_data_file.txt".to_string();
-    let mut reader: FileReader = Reader::open(&filename);
+    let mut reader = FileReader::new();
+    let _res = reader.open(&filename);
 
     let position = reader.get_position().unwrap();
     assert_eq!(position, 0);

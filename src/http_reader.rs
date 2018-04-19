@@ -48,20 +48,23 @@ fn get_data(filename: &str, range: Vec<ByteRangeSpec>) -> Result<ResponseData, S
         .build()
         .unwrap();
 
-    let mut response = client.get(filename).send().unwrap();
+    let mut response = match client.get(filename).send() {
+        Ok(content) => content,
+        Err(_msg) => return Err("bad request".to_string()),
+    };
 
     let status = response.status();
 
     if !(status == StatusCode::Ok || status == StatusCode::PartialContent) {
-        println!("ERROR {:?}", response);
+        error!("ERROR {:?}", response);
         return Err("bad response status".to_string());
     }
 
     let mut body: Vec<u8> = vec![];
-    response.copy_to(&mut body).unwrap();
+    let _result = response.copy_to(&mut body);
 
     let file_size = match get_content_range(&response) {
-        Ok(length) => length.unwrap(),
+        Ok(length) => length.unwrap_or(0),
         Err(_msg) => return Err("bad response header".to_string()),
     };
 
@@ -151,13 +154,14 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
     }
 
     let range = get_data_range(position, size, reader.buffer.max_end_position);
-    let response = get_data(&reader.filename, range)
-        .map_err(|e| e.to_string())
-        .unwrap();
+    let response = match get_data(&reader.filename, range) {
+        Ok(data) => data,
+        Err(msg) => return Err(msg),
+    };
 
     let elapsed = start.elapsed();
     if elapsed.as_secs() > 0 {
-        println!("WARNING: Request duration {} seconds", elapsed.as_secs());
+        warn!("Request duration {} seconds", elapsed.as_secs());
     }
 
     let new_position = position + response.body_data.len() as u64;
@@ -173,26 +177,33 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
 }
 
 impl Reader for HttpReader {
-    fn open(filename: &str) -> HttpReader {
+    fn new() -> HttpReader {
+        HttpReader {
+            filename: "".to_string(),
+            file_size: None,
+            position: 0,
+            buffer: Buffer {
+                size: None,
+                position: 0,
+                max_end_position: None,
+                buffer: vec![],
+            },
+        }
+    }
+
+    fn open(&mut self, filename: &str) -> Result<(), String> {
+        self.filename = filename.to_string();
+
         match get_head(filename) {
-            Err(msg) => panic!(msg.to_string()),
+            Err(msg) => Err(msg.to_string()),
             Ok(response) => {
                 let content_length = match get_content_range(&response) {
                     Ok(length) => length,
                     _ => get_content_length(&response),
                 };
 
-                HttpReader {
-                    filename: filename.to_string(),
-                    file_size: content_length,
-                    position: 0,
-                    buffer: Buffer {
-                        size: None,
-                        position: 0,
-                        max_end_position: None,
-                        buffer: vec![],
-                    },
-                }
+                self.file_size = content_length;
+                Ok(())
             }
         }
     }
