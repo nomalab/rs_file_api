@@ -33,7 +33,7 @@ impl Buffer {
         data
     }
 
-    pub fn append_data(&mut self, full_data: &Vec<u8>) {
+    pub fn append_data(&mut self, full_data: &[u8]) {
         self.buffer.extend_from_slice(full_data);
     }
 

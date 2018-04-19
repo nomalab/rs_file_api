@@ -21,10 +21,10 @@ pub struct MainReader {
 }
 
 impl reader::Reader for MainReader {
-    fn open(filename: &String) -> MainReader {
-        match detect_kind(&filename) {
+    fn open(filename: &str) -> MainReader {
+        match detect_kind(filename) {
             ReaderKind::Http => {
-                let reader: http_reader::HttpReader = reader::Reader::open(&filename);
+                let reader: http_reader::HttpReader = reader::Reader::open(filename);
 
                 MainReader {
                     http_reader: Some(reader),
@@ -32,7 +32,7 @@ impl reader::Reader for MainReader {
                 }
             }
             ReaderKind::File => {
-                let reader: file_reader::FileReader = reader::Reader::open(&filename);
+                let reader: file_reader::FileReader = reader::Reader::open(filename);
 
                 MainReader {
                     http_reader: None,
@@ -43,97 +43,81 @@ impl reader::Reader for MainReader {
     }
 
     fn get_cache_size(&self) -> Option<usize> {
-        match self.http_reader {
-            Some(ref reader) => return reader.get_cache_size(),
-            None => {}
+        if let Some(ref reader) = self.http_reader {
+            return reader.get_cache_size();
         }
-        match self.file_reader {
-            Some(ref reader) => return reader.get_cache_size(),
-            None => {}
+        if let Some(ref reader) = self.file_reader {
+            return reader.get_cache_size();
         }
         panic!("no reader configured");
     }
 
     fn set_cache_size(&mut self, cache_size: Option<usize>) {
-        match self.http_reader {
-            Some(ref mut reader) => return reader.set_cache_size(cache_size),
-            None => {}
+        if let Some(ref mut reader) = self.http_reader {
+            return reader.set_cache_size(cache_size);
         }
-        match self.file_reader {
-            Some(ref mut reader) => return reader.set_cache_size(cache_size),
-            None => {}
+        if let Some(ref mut reader) = self.file_reader {
+            return reader.set_cache_size(cache_size);
         }
         panic!("no reader configured");
     }
 
     fn get_max_end_position(&self) -> Option<u64> {
-        match self.http_reader {
-            Some(ref reader) => return reader.get_max_end_position(),
-            None => {}
+        if let Some(ref reader) = self.http_reader {
+            return reader.get_max_end_position();
         }
-        match self.file_reader {
-            Some(ref reader) => return reader.get_max_end_position(),
-            None => {}
+        if let Some(ref reader) = self.file_reader {
+            return reader.get_max_end_position();
         }
         panic!("no reader configured");
     }
 
     fn set_max_end_position(&mut self, max_end_position: Option<u64>) {
-        match self.http_reader {
-            Some(ref mut reader) => return reader.set_max_end_position(max_end_position),
-            None => {}
+        if let Some(ref mut reader) = self.http_reader {
+            return reader.set_max_end_position(max_end_position);
         }
-        match self.file_reader {
-            Some(ref mut reader) => return reader.set_max_end_position(max_end_position),
-            None => {}
+        if let Some(ref mut reader) = self.file_reader {
+            return reader.set_max_end_position(max_end_position);
         }
         panic!("no reader configured");
     }
 
     fn get_position(&mut self) -> Result<u64, String> {
-        match self.http_reader {
-            Some(ref mut reader) => return reader.get_position(),
-            None => {}
+        if let Some(ref mut reader) = self.http_reader {
+            return reader.get_position();
         }
-        match self.file_reader {
-            Some(ref mut reader) => return reader.get_position(),
-            None => {}
+        if let Some(ref mut reader) = self.file_reader {
+            return reader.get_position();
         }
         panic!("no reader configured");
     }
 
     fn get_size(&mut self) -> Result<u64, String> {
-        match self.http_reader {
-            Some(ref mut reader) => return reader.get_size(),
-            None => {}
+        if let Some(ref mut reader) = self.http_reader {
+            return reader.get_size();
         }
-        match self.file_reader {
-            Some(ref mut reader) => return reader.get_size(),
-            None => {}
+        if let Some(ref mut reader) = self.file_reader {
+            return reader.get_size();
         }
         panic!("no reader configured");
     }
 
     fn read(&mut self, size: usize) -> Result<Vec<u8>, String> {
-        match self.http_reader {
-            Some(ref mut reader) => return reader.read(size),
-            None => {}
+        if let Some(ref mut reader) = self.http_reader {
+            return reader.read(size);
         }
-        match self.file_reader {
-            Some(ref mut reader) => return reader.read(size),
-            None => {}
+        if let Some(ref mut reader) = self.file_reader {
+            return reader.read(size);
         }
         panic!("no reader configured");
     }
 
     fn seek(&mut self, seek: SeekFrom) -> Result<u64, String> {
-        match self.http_reader {
-            Some(ref mut reader) => return reader.seek(seek),
-            None => {}
+        if let Some(ref mut reader) = self.http_reader {
+            return reader.seek(seek);
         }
-        match self.file_reader {
-            Some(ref mut reader) => return reader.seek(seek),
-            None => {}
+        if let Some(ref mut reader) = self.file_reader {
+            return reader.seek(seek);
         }
         panic!("no reader configured");
     }
@@ -145,17 +129,17 @@ enum ReaderKind {
     File,
 }
 
-fn detect_kind(filename: &String) -> ReaderKind {
+fn detect_kind(filename: &str) -> ReaderKind {
     if filename.starts_with("http://") || filename.starts_with("https://") {
         return ReaderKind::Http;
     }
-    return ReaderKind::File;
+    ReaderKind::File
 }
 
-pub fn exists(filename: &String) -> bool {
-    match detect_kind(&filename) {
-        ReaderKind::Http => http_reader::exists(&filename),
-        ReaderKind::File => file_reader::exists(&filename),
+pub fn exists(filename: &str) -> bool {
+    match detect_kind(filename) {
+        ReaderKind::Http => http_reader::exists(filename),
+        ReaderKind::File => file_reader::exists(filename),
     }
 }
 

@@ -16,7 +16,7 @@ use std::io::SeekFrom;
 use std::cmp;
 use std::time::Instant;
 
-fn get_head(filename: &String) -> Result<reqwest::Response, Error> {
+fn get_head(filename: &str) -> Result<reqwest::Response, Error> {
     if filename.contains("s3.amazonaws.com") {
         let range = vec![FromTo(0, 0)];
 
@@ -40,7 +40,7 @@ struct ResponseData {
     file_size: u64,
 }
 
-fn get_data(filename: &String, range: Vec<ByteRangeSpec>) -> Result<ResponseData, String> {
+fn get_data(filename: &str, range: Vec<ByteRangeSpec>) -> Result<ResponseData, String> {
     let mut headers = header::Headers::new();
     headers.set(Bytes(range));
     let client = reqwest::Client::builder()
@@ -67,7 +67,7 @@ fn get_data(filename: &String, range: Vec<ByteRangeSpec>) -> Result<ResponseData
 
     Ok(ResponseData {
         body_data: body,
-        file_size: file_size,
+        file_size,
     })
 }
 
@@ -108,7 +108,7 @@ pub struct HttpReader {
     pub buffer: Buffer,
 }
 
-pub fn exists(filename: &String) -> bool {
+pub fn exists(filename: &str) -> bool {
     match get_head(filename) {
         Ok(resp) => resp.status().is_success(),
         Err(_msg) => false,
@@ -140,18 +140,15 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
         None => reader.position,
     };
 
-    match reader.file_size {
-        Some(total_file_size) => {
-            if position >= total_file_size {
-                info!(
-                    "request range out of range: {} > {}",
-                    position, total_file_size
-                );
-                return Ok(None);
-            }
+    if let Some(total_file_size) = reader.file_size {
+        if position >= total_file_size {
+            info!(
+                "request range out of range: {} > {}",
+                position, total_file_size
+            );
+            return Ok(None);
         }
-        None => (),
-    };
+    }
 
     let range = get_data_range(position, size, reader.buffer.max_end_position);
     let response = get_data(&reader.filename, range)
@@ -176,7 +173,7 @@ fn load_data(reader: &mut HttpReader, size: usize) -> Result<Option<Vec<u8>>, St
 }
 
 impl Reader for HttpReader {
-    fn open(filename: &String) -> HttpReader {
+    fn open(filename: &str) -> HttpReader {
         match get_head(filename) {
             Err(msg) => panic!(msg.to_string()),
             Ok(response) => {
@@ -251,9 +248,10 @@ impl Reader for HttpReader {
                             match some_data {
                                 Some(data) => {
                                     // println!("{:?} vs {:?}", data.len(), size);
-                                    match data.len() >= size {
-                                        true => Ok(data),
-                                        false => Ok(Vec::new()),
+                                    if data.len() >= size {
+                                        Ok(data)
+                                    } else {
+                                        Ok(Vec::new())
                                     }
                                 }
                                 None => Ok(Vec::new()),
@@ -268,7 +266,7 @@ impl Reader for HttpReader {
     fn seek(&mut self, seek: SeekFrom) -> Result<u64, String> {
         match seek {
             SeekFrom::Current(offset) => {
-                self.position = self.position + offset as u64;
+                self.position += offset as u64;
                 if self.buffer.size.is_some() {
                     if offset > 0 && self.buffer.get_cached_size() > offset as usize {
                         let _skiped_data = self.buffer.get_data(offset as usize);

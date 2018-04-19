@@ -17,18 +17,18 @@ pub struct FileReader {
     pub buffer: Buffer,
 }
 
-pub fn exists(filename: &String) -> bool {
-    Path::new(&filename).exists()
+pub fn exists(filename: &str) -> bool {
+    Path::new(filename).exists()
 }
 
 impl Reader for FileReader {
-    fn open(filename: &String) -> FileReader {
+    fn open(filename: &str) -> FileReader {
         match File::open(filename) {
             Err(msg) => panic!(msg.to_string()),
             Ok(file) => FileReader {
                 filename: filename.to_string(),
                 position: 0,
-                file: file,
+                file,
                 buffer: Buffer {
                     size: None,
                     position: 0,
@@ -68,12 +68,11 @@ impl Reader for FileReader {
         let mut data = vec![0; size];
         let loaded_size = try!(self.file.read(&mut data).map_err(|e| e.to_string()));
 
-        match loaded_size == size {
-            true => {
-                self.position = self.position + size as u64;
-                Ok(data)
-            }
-            false => Ok(Vec::new()),
+        if loaded_size == size {
+            self.position += size as u64;
+            Ok(data)
+        } else {
+            Ok(Vec::new())
         }
     }
 
