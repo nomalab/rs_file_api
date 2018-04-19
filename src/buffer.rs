@@ -22,6 +22,9 @@ impl Buffer {
   }
 
   pub fn get_data(&mut self, size: usize) -> Vec<u8> {
+    if size > self.buffer.len() {
+      return vec![];
+    }
     let next_data = self.buffer.split_off(size);
 
     let data = self.buffer.clone();
