@@ -9,8 +9,7 @@ use std::io::SeekFrom;
 use std::net::TcpListener;
 use std::time::Duration;
 
-use futures::Sink;
-use futures::sync::mpsc;
+use futures::channel::mpsc;
 
 use file_api::http_reader::HttpReader;
 use file_api::reader::Reader;
