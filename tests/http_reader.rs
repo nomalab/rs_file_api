@@ -49,30 +49,26 @@ fn mock_server(port: &str, messages: Vec<String>, tester: &mut FnMut()) {
 }
 
 macro_rules! assert_position {
-  ($reader:expr, $position:expr) => {
-    {
-      let position = $reader.get_position().unwrap();
-      assert_eq!(position, $position);
-    }
-  };
+    ($reader: expr, $position: expr) => {
+        let position = $reader.get_position().unwrap();
+        assert_eq!(position, $position);
+    };
 }
+
 macro_rules! assert_buffer_position {
-  ($reader:expr, $position:expr) => {
-    {
-      assert_eq!($reader.buffer.position, $position);
-    }
-  };
+    ($reader: expr, $position: expr) => {
+        assert_eq!($reader.buffer.position, $position);
+    };
 }
+
 macro_rules! assert_next_data {
-  ($reader:expr, $string_data:expr) => {
-    {
-      let length = $string_data.len();
-      let data = $reader.read(length).unwrap();
-      assert_eq!(data.len(), length);
-      let data_str = std::str::from_utf8(&data).unwrap();
-      assert!(data_str == $string_data);
-    }
-  };
+    ($reader:expr, $string_data:expr) => {
+        let length = $string_data.len();
+        let data = $reader.read(length).unwrap();
+        assert_eq!(data.len(), length);
+        let data_str = std::str::from_utf8(&data).unwrap();
+        assert!(data_str == $string_data);
+    };
 }
 
 #[test]
