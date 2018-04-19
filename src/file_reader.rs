@@ -40,7 +40,7 @@ impl Reader for FileReader {
         self.filename = filename.to_string();
 
         match File::open(filename) {
-            Err(msg) => panic!(msg.to_string()),
+            Err(msg) => Err(msg.to_string()),
             Ok(file) => {
                 self.file = Some(file);
                 Ok(())

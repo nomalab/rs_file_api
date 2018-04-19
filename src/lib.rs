@@ -62,17 +62,16 @@ impl reader::Reader for MainReader {
         if let Some(ref reader) = self.file_reader {
             return reader.get_cache_size();
         }
-        panic!("no reader configured");
+        None
     }
 
     fn set_cache_size(&mut self, cache_size: Option<usize>) {
         if let Some(ref mut reader) = self.http_reader {
-            return reader.set_cache_size(cache_size);
+            reader.set_cache_size(cache_size)
         }
         if let Some(ref mut reader) = self.file_reader {
-            return reader.set_cache_size(cache_size);
+            reader.set_cache_size(cache_size)
         }
-        panic!("no reader configured");
     }
 
     fn get_max_end_position(&self) -> Option<u64> {
@@ -82,7 +81,7 @@ impl reader::Reader for MainReader {
         if let Some(ref reader) = self.file_reader {
             return reader.get_max_end_position();
         }
-        panic!("no reader configured");
+        None
     }
 
     fn set_max_end_position(&mut self, max_end_position: Option<u64>) {
@@ -92,7 +91,6 @@ impl reader::Reader for MainReader {
         if let Some(ref mut reader) = self.file_reader {
             return reader.set_max_end_position(max_end_position);
         }
-        panic!("no reader configured");
     }
 
     fn get_position(&mut self) -> Result<u64, String> {
@@ -102,7 +100,7 @@ impl reader::Reader for MainReader {
         if let Some(ref mut reader) = self.file_reader {
             return reader.get_position();
         }
-        panic!("no reader configured");
+        Err("no reader configured".to_string())
     }
 
     fn get_size(&mut self) -> Result<u64, String> {
@@ -112,7 +110,7 @@ impl reader::Reader for MainReader {
         if let Some(ref mut reader) = self.file_reader {
             return reader.get_size();
         }
-        panic!("no reader configured");
+        Err("no reader configured".to_string())
     }
 
     fn read(&mut self, size: usize) -> Result<Vec<u8>, String> {
@@ -122,7 +120,7 @@ impl reader::Reader for MainReader {
         if let Some(ref mut reader) = self.file_reader {
             return reader.read(size);
         }
-        panic!("no reader configured");
+        Err("no reader configured".to_string())
     }
 
     fn seek(&mut self, seek: SeekFrom) -> Result<u64, String> {
@@ -132,7 +130,7 @@ impl reader::Reader for MainReader {
         if let Some(ref mut reader) = self.file_reader {
             return reader.seek(seek);
         }
-        panic!("no reader configured");
+        Err("no reader configured".to_string())
     }
 }
 
