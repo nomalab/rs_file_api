@@ -17,7 +17,7 @@ use std::cmp;
 use std::time::Instant;
 
 fn get_head(filename: &str) -> Result<reqwest::Response, Error> {
-    if filename.contains("s3.amazonaws.com") {
+    if filename.contains(".amazonaws.com") {
         let range = vec![FromTo(0, 0)];
 
         let mut headers = header::Headers::new();
