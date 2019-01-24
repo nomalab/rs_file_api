@@ -239,46 +239,44 @@ impl Read for HttpReader {
         if self.buffer.get_cached_size() >= buf.len() {
             self.position += buf.len() as u64;
             if self.buffer.get_data(buf) {
-                return Ok(buf.len());
+                Ok(buf.len())
             } else {
-                return Err(Error::new(
+                Err(Error::new(
                     ErrorKind::Other,
                     "unable to read data from HTTP cache",
-                ));
+                ))
+            }
+        } else if let Some(buffer_size) = self.buffer.size {
+            let some_data = load_data(self, buffer_size)
+                .map_err(|msg| Error::new(ErrorKind::Other, msg))?;
+
+            if let Some(data) = some_data {
+                self.buffer.append_data(&data.to_vec());
+                self.position += buf.len() as u64;
+                if self.buffer.get_data(buf) {
+                    return Ok(buf.len());
+                } else {
+                    return Err(Error::new(
+                        ErrorKind::Other,
+                        "unable to read data from HTTP cache",
+                    ));
+                }
+            } else {
+                Ok(0)
             }
         } else {
-            if let Some(buffer_size) = self.buffer.size {
-                let some_data = load_data(self, buffer_size)
-                    .map_err(|msg| Error::new(ErrorKind::Other, msg))?;
+            let some_data =
+                load_data(self, buf.len()).map_err(|msg| Error::new(ErrorKind::Other, msg))?;
 
-                if let Some(data) = some_data {
-                    self.buffer.append_data(&data.to_vec());
-                    self.position += buf.len() as u64;
-                    if self.buffer.get_data(buf) {
-                        return Ok(buf.len());
-                    } else {
-                        return Err(Error::new(
-                            ErrorKind::Other,
-                            "unable to read data from HTTP cache",
-                        ));
-                    }
+            if let Some(data) = some_data {
+                if data.len() >= buf.len() {
+                    buf.clone_from_slice(&data);
+                    Ok(data.len())
                 } else {
                     Ok(0)
                 }
             } else {
-                let some_data =
-                    load_data(self, buf.len()).map_err(|msg| Error::new(ErrorKind::Other, msg))?;
-
-                if let Some(data) = some_data {
-                    if data.len() >= buf.len() {
-                        buf.clone_from_slice(&data);
-                        Ok(data.len())
-                    } else {
-                        Ok(0)
-                    }
-                } else {
-                    Ok(0)
-                }
+                Ok(0)
             }
         }
     }
