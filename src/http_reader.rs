@@ -247,8 +247,8 @@ impl Read for HttpReader {
                 ))
             }
         } else if let Some(buffer_size) = self.buffer.size {
-            let some_data = load_data(self, buffer_size)
-                .map_err(|msg| Error::new(ErrorKind::Other, msg))?;
+            let some_data =
+                load_data(self, buffer_size).map_err(|msg| Error::new(ErrorKind::Other, msg))?;
 
             if let Some(data) = some_data {
                 self.buffer.append_data(&data.to_vec());
