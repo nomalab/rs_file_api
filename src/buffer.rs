@@ -20,17 +20,16 @@ impl Buffer {
         self.buffer.len()
     }
 
-    pub fn get_data(&mut self, size: usize) -> Vec<u8> {
-        if size > self.buffer.len() {
-            return vec![];
+    pub fn get_data(&mut self, buf: &mut [u8]) -> bool {
+        if buf.len() > self.buffer.len() {
+            return false;
         }
-        let next_data = self.buffer.split_off(size);
-
-        let data = self.buffer.clone();
+        let next_data = self.buffer.split_off(buf.len());
+        buf.clone_from_slice(&self.buffer);
         self.buffer = next_data;
 
         debug!("left #{:?}", self.buffer.len());
-        data
+        true
     }
 
     pub fn append_data(&mut self, full_data: &[u8]) {

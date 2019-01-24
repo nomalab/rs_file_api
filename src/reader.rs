@@ -1,5 +1,3 @@
-use std::io::SeekFrom;
-
 pub trait Reader {
     fn new() -> Self;
     fn open(&mut self, filename: &str) -> Result<(), String>;
@@ -12,7 +10,4 @@ pub trait Reader {
 
     fn get_position(&mut self) -> Result<u64, String>;
     fn get_size(&mut self) -> Result<u64, String>;
-
-    fn read(&mut self, size: usize) -> Result<Vec<u8>, String>;
-    fn seek(&mut self, seek: SeekFrom) -> Result<u64, String>;
 }

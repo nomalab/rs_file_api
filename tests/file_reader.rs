@@ -3,7 +3,7 @@ extern crate file_api;
 use file_api::file_reader::FileReader;
 use file_api::reader::Reader;
 
-use std::io::SeekFrom;
+use std::io::{Read, Seek, SeekFrom};
 
 #[test]
 fn file_exists() {
@@ -33,7 +33,8 @@ fn file_read_data() {
     let position = reader.get_position().unwrap();
     assert_eq!(position, 0);
 
-    let data = reader.read(4).unwrap();
+    let mut data = [0; 4];
+    reader.read(&mut data).unwrap();
     assert_eq!(data.len(), 4);
 
     let data_str = std::str::from_utf8(&data).unwrap();
@@ -42,7 +43,8 @@ fn file_read_data() {
     let position = reader.get_position().unwrap();
     assert_eq!(position, 4);
 
-    let data = reader.read(4).unwrap();
+    let mut data = [0; 4];
+    reader.read(&mut data).unwrap();
     assert_eq!(data.len(), 4);
 
     let data_str = std::str::from_utf8(&data).unwrap();

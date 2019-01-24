@@ -1,22 +1,20 @@
-use hyper::StatusCode;
 use hyper::header::ByteRangeSpec;
 use hyper::header::ByteRangeSpec::FromTo;
 use hyper::header::Range::Bytes;
 use hyper::header::{ContentLength, ContentRange, ContentRangeSpec};
+use hyper::StatusCode;
 
 use reqwest;
-use reqwest::Client;
-use reqwest::Error;
-use reqwest::header;
+use reqwest::{header, Client};
 
-use reader::Reader;
 use buffer::Buffer;
+use reader::Reader;
 
-use std::io::SeekFrom;
 use std::cmp;
+use std::io::{Error, ErrorKind, Read, Seek, SeekFrom};
 use std::time::Instant;
 
-fn get_head(filename: &str) -> Result<reqwest::Response, Error> {
+fn get_head(filename: &str) -> Result<reqwest::Response, reqwest::Error> {
     if filename.contains(".amazonaws.com") {
         let range = vec![FromTo(0, 0)];
 
@@ -234,53 +232,68 @@ impl Reader for HttpReader {
             None => Err("No length detected".to_string()),
         }
     }
+}
 
-    fn read(&mut self, size: usize) -> Result<Vec<u8>, String> {
-        if self.buffer.get_cached_size() >= size {
-            self.position += size as u64;
-            Ok(self.buffer.get_data(size))
+impl Read for HttpReader {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
+        if self.buffer.get_cached_size() >= buf.len() {
+            self.position += buf.len() as u64;
+            if self.buffer.get_data(buf) {
+                return Ok(buf.len());
+            } else {
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    "unable to read data from HTTP cache",
+                ));
+            }
         } else {
-            match self.buffer.size {
-                Some(buffer_size) => match load_data(self, buffer_size) {
-                    Err(msg) => Err(msg),
-                    Ok(some_data) => match some_data {
-                        Some(data) => {
-                            self.buffer.append_data(&data.to_vec());
-                            self.position += size as u64;
-                            Ok(self.buffer.get_data(size))
-                        }
-                        None => Ok(Vec::new()),
-                    },
-                },
-                None => {
-                    match load_data(self, size) {
-                        Err(msg) => Err(msg),
-                        Ok(some_data) => {
-                            match some_data {
-                                Some(data) => {
-                                    // println!("{:?} vs {:?}", data.len(), size);
-                                    if data.len() >= size {
-                                        Ok(data)
-                                    } else {
-                                        Ok(Vec::new())
-                                    }
-                                }
-                                None => Ok(Vec::new()),
-                            }
-                        }
+            if let Some(buffer_size) = self.buffer.size {
+                let some_data = load_data(self, buffer_size)
+                    .map_err(|msg| Error::new(ErrorKind::Other, msg))?;
+
+                if let Some(data) = some_data {
+                    self.buffer.append_data(&data.to_vec());
+                    self.position += buf.len() as u64;
+                    if self.buffer.get_data(buf) {
+                        return Ok(buf.len());
+                    } else {
+                        return Err(Error::new(
+                            ErrorKind::Other,
+                            "unable to read data from HTTP cache",
+                        ));
                     }
+                } else {
+                    Ok(0)
+                }
+            } else {
+                let some_data =
+                    load_data(self, buf.len()).map_err(|msg| Error::new(ErrorKind::Other, msg))?;
+
+                if let Some(data) = some_data {
+                    if data.len() >= buf.len() {
+                        buf.clone_from_slice(&data);
+                        Ok(data.len())
+                    } else {
+                        Ok(0)
+                    }
+                } else {
+                    Ok(0)
                 }
             }
         }
     }
+}
 
-    fn seek(&mut self, seek: SeekFrom) -> Result<u64, String> {
-        match seek {
+impl Seek for HttpReader {
+    fn seek(&mut self, seek_from: SeekFrom) -> Result<u64, Error> {
+        match seek_from {
             SeekFrom::Current(offset) => {
                 self.position += offset as u64;
                 if self.buffer.size.is_some() {
                     if offset > 0 && self.buffer.get_cached_size() > offset as usize {
-                        let _skiped_data = self.buffer.get_data(offset as usize);
+                        let mut skipped_data = vec![];
+                        skipped_data.resize(offset as usize, 0);
+                        let _skiped_data = self.buffer.get_data(&mut skipped_data);
                     } else {
                         self.buffer.reset();
                     }
@@ -302,7 +315,7 @@ impl Reader for HttpReader {
                             self.buffer.position = self.position;
                         }
                     }
-                    None => return Err("Missing file size".to_string()),
+                    None => return Err(Error::new(ErrorKind::Other, "Missing file size")),
                 }
             }
         }

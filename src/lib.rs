@@ -8,11 +8,11 @@ extern crate reqwest;
 
 pub mod buffer;
 
-pub mod reader;
 pub mod file_reader;
 pub mod http_reader;
+pub mod reader;
 
-use std::io::SeekFrom;
+use std::io::{Error, ErrorKind, Read, Seek, SeekFrom};
 
 #[derive(Debug)]
 pub struct MainReader {
@@ -112,25 +112,29 @@ impl reader::Reader for MainReader {
         }
         Err("no reader configured".to_string())
     }
+}
 
-    fn read(&mut self, size: usize) -> Result<Vec<u8>, String> {
+impl Read for MainReader {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
         if let Some(ref mut reader) = self.http_reader {
-            return reader.read(size);
+            return reader.read(buf);
         }
         if let Some(ref mut reader) = self.file_reader {
-            return reader.read(size);
+            return reader.read(buf);
         }
-        Err("no reader configured".to_string())
+        Err(Error::new(ErrorKind::Other, "no reader configured"))
     }
+}
 
-    fn seek(&mut self, seek: SeekFrom) -> Result<u64, String> {
+impl Seek for MainReader {
+    fn seek(&mut self, seek_from: SeekFrom) -> Result<u64, Error> {
         if let Some(ref mut reader) = self.http_reader {
-            return reader.seek(seek);
+            return reader.seek(seek_from);
         }
         if let Some(ref mut reader) = self.file_reader {
-            return reader.seek(seek);
+            return reader.seek(seek_from);
         }
-        Err("no reader configured".to_string())
+        Err(Error::new(ErrorKind::Other, "no reader configured"))
     }
 }
 

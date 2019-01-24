@@ -1,13 +1,11 @@
 use std::fs;
-use std::path::Path;
 use std::fs::File;
+use std::path::Path;
 
-use std::io::prelude::*;
-use std::io::Read;
-use std::io::SeekFrom;
+use std::io::{Error, ErrorKind, Read, Seek, SeekFrom};
 
-use reader::Reader;
 use buffer::Buffer;
+use reader::Reader;
 
 #[derive(Debug)]
 pub struct FileReader {
@@ -72,36 +70,26 @@ impl Reader for FileReader {
         let metadata = try!(fs::metadata(self.filename.clone()).map_err(|e| e.to_string()));
         Ok(metadata.len())
     }
+}
 
-    fn read(&mut self, size: usize) -> Result<Vec<u8>, String> {
-        let mut data = vec![0; size];
-
-        match self.file {
-            Some(ref mut file_reader) => match file_reader.read(&mut data) {
-                Ok(loaded_size) => {
-                    if loaded_size == size {
-                        self.position += size as u64;
-                        Ok(data)
-                    } else {
-                        Ok(Vec::new())
-                    }
-                }
-                Err(msg) => Err(msg.to_string()),
-            },
-            None => Err("No file opened".to_string()),
+impl Read for FileReader {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
+        if let Some(ref mut file_reader) = self.file {
+            let readed_size = file_reader.read(buf)?;
+            self.position += readed_size as u64;
+            Ok(readed_size)
+        } else {
+            Err(Error::new(ErrorKind::Other, "No file opened"))
         }
     }
+}
 
-    fn seek(&mut self, seek: SeekFrom) -> Result<u64, String> {
-        match self.file {
-            Some(ref mut file_reader) => match file_reader.seek(seek) {
-                Ok(position) => {
-                    self.position = position;
-                    Ok(position)
-                }
-                Err(msg) => Err(msg.to_string()),
-            },
-            None => Err("No file opened".to_string()),
+impl Seek for FileReader {
+    fn seek(&mut self, seek_from: SeekFrom) -> Result<u64, Error> {
+        if let Some(ref mut file_reader) = self.file {
+            file_reader.seek(seek_from)
+        } else {
+            Err(Error::new(ErrorKind::Other, "No file opened"))
         }
     }
 }

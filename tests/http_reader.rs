@@ -2,15 +2,13 @@ extern crate file_api;
 extern crate futures;
 extern crate hyper;
 
-use std::thread;
-use std::io::Read;
-use std::io::Write;
-use std::io::SeekFrom;
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::net::TcpListener;
+use std::thread;
 use std::time::Duration;
 
-use futures::Sink;
 use futures::sync::mpsc;
+use futures::Sink;
 
 use file_api::http_reader::HttpReader;
 use file_api::reader::Reader;
@@ -63,10 +61,12 @@ macro_rules! assert_buffer_position {
 }
 
 macro_rules! assert_next_data {
-    ($reader: expr, $string_data: expr) => {
-        let length = $string_data.len();
-        let data = $reader.read(length).unwrap();
-        assert_eq!(data.len(), length);
+    ($reader: expr, $string_data: expr, $length: expr) => {
+        let mut data = [0; $length];
+        let r = $reader.read(&mut data).unwrap();
+        println!("{:?}", r);
+        println!("{:?}", data);
+        assert_eq!(data.len(), $length);
         let data_str = std::str::from_utf8(&data).unwrap();
         assert!(data_str == $string_data);
     };
@@ -128,9 +128,9 @@ fn http_read_data() {
         let _res = reader.open(&filename);
 
         assert_position!(reader, 0);
-        assert_next_data!(reader, "some".to_string());
+        assert_next_data!(reader, "some".to_string(), 4);
         assert_position!(reader, 4);
-        assert_next_data!(reader, "data".to_string());
+        assert_next_data!(reader, "data".to_string(), 4);
         assert_position!(reader, 8);
     }
 
@@ -154,20 +154,21 @@ fn http_read_buffered_data() {
 
         assert_position!(reader, 0);
         assert_buffer_position!(reader, 0);
-        assert_next_data!(reader, "some".to_string());
+        assert_next_data!(reader, "some".to_string(), 4);
         assert_position!(reader, 4);
         assert_buffer_position!(reader, 12);
-        assert_next_data!(reader, "data".to_string());
+        assert_next_data!(reader, "data".to_string(), 4);
         assert_position!(reader, 8);
         assert_buffer_position!(reader, 12);
 
         let new_position = reader.seek(SeekFrom::Current(2));
-        assert_eq!(new_position, Ok(10));
+        assert!(new_position.is_ok());
+        assert_eq!(new_position.unwrap(), 10);
 
         assert_position!(reader, 10);
         assert_buffer_position!(reader, 12);
 
-        assert_next_data!(reader, "xt".to_string());
+        assert_next_data!(reader, "xt".to_string(), 2);
         assert_position!(reader, 12);
         assert_buffer_position!(reader, 12);
     }
@@ -189,17 +190,19 @@ fn http_read_and_seek_buffered_data() {
         let _res = reader.open(&filename);
 
         let new_position = reader.seek(SeekFrom::Current(2));
-        assert_eq!(new_position, Ok(2));
+        assert!(new_position.is_ok());
+        assert_eq!(new_position.unwrap(), 2);
 
         reader.set_cache_size(Some(8));
 
         let new_position = reader.seek(SeekFrom::Current(2));
-        assert_eq!(new_position, Ok(4));
+        assert!(new_position.is_ok());
+        assert_eq!(new_position.unwrap(), 4);
 
         assert_position!(reader, 4);
-        assert_next_data!(reader, "data".to_string());
+        assert_next_data!(reader, "data".to_string(), 4);
         assert_position!(reader, 8);
-        assert_next_data!(reader, "next".to_string());
+        assert_next_data!(reader, "next".to_string(), 4);
         assert_position!(reader, 12);
     }
 
@@ -236,12 +239,12 @@ fn http_read_and_return_different_buffer_size() {
         let _res = reader.open(&filename);
 
         reader.set_cache_size(Some(100));
-        assert_next_data!(reader, "somedata");
+        assert_next_data!(reader, "somedata", 8);
 
         assert_position!(reader, 8);
         assert_buffer_position!(reader, 12);
 
-        assert_next_data!(reader, "next");
+        assert_next_data!(reader, "next", 4);
         assert_position!(reader, 12);
         assert_buffer_position!(reader, 12);
     }
