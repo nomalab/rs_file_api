@@ -1,8 +1,8 @@
 #![crate_name = "file_api"]
 #![crate_type = "lib"]
 
-extern crate hyperx;
 extern crate hyper;
+extern crate hyperx;
 #[macro_use]
 extern crate log;
 extern crate reqwest;
