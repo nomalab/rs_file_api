@@ -249,12 +249,12 @@ impl Read for HttpReader {
                 self.buffer.append_data(&data.to_vec());
                 self.position += buf.len() as u64;
                 if self.buffer.get_data(buf) {
-                    return Ok(buf.len());
+                    Ok(buf.len())
                 } else {
-                    return Err(Error::new(
+                    Err(Error::new(
                         ErrorKind::Other,
                         "unable to read data from HTTP cache",
-                    ));
+                    ))
                 }
             } else {
                 Ok(0)
