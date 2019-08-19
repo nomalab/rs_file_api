@@ -13,7 +13,7 @@ use futures::Sink;
 use file_api::http_reader::HttpReader;
 use file_api::reader::Reader;
 
-fn mock_server(port: &str, messages: Vec<String>, tester: &mut FnMut()) {
+fn mock_server(port: &str, messages: Vec<String>, tester: &mut dyn FnMut()) {
     let mut responses = messages.clone();
     responses.reverse();
 
