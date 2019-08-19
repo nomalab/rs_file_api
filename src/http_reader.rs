@@ -1,27 +1,30 @@
-use hyper::header::ByteRangeSpec;
-use hyper::header::ByteRangeSpec::FromTo;
-use hyper::header::Range::Bytes;
-use hyper::header::{ContentLength, ContentRange, ContentRangeSpec};
-use hyper::StatusCode;
+use hyper::{HeaderMap, StatusCode};
+
+use hyperx::header::ByteRangeSpec;
+use hyperx::header::ByteRangeSpec::FromTo;
+use hyperx::header::Range::Bytes;
+use hyperx::header::ContentRangeSpec;
+use hyperx::Headers;
 
 use reqwest;
-use reqwest::{header, Client};
+use reqwest::Client;
 
 use buffer::Buffer;
 use reader::Reader;
 
 use std::cmp;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom};
+use std::str::FromStr;
 use std::time::Instant;
 
 fn get_head(filename: &str) -> Result<reqwest::Response, reqwest::Error> {
     if filename.contains(".amazonaws.com") {
         let range = vec![FromTo(0, 0)];
 
-        let mut headers = header::Headers::new();
+        let mut headers = Headers::new();
         headers.set(Bytes(range));
         let client = reqwest::Client::builder()
-            .default_headers(headers)
+            .default_headers(HeaderMap::from(headers))
             .build()
             .unwrap();
 
@@ -39,10 +42,10 @@ struct ResponseData {
 }
 
 fn get_data(filename: &str, range: Vec<ByteRangeSpec>) -> Result<ResponseData, String> {
-    let mut headers = header::Headers::new();
+    let mut headers = Headers::new();
     headers.set(Bytes(range));
     let client = reqwest::Client::builder()
-        .default_headers(headers)
+        .default_headers(HeaderMap::from(headers))
         .build()
         .unwrap();
 
@@ -53,7 +56,7 @@ fn get_data(filename: &str, range: Vec<ByteRangeSpec>) -> Result<ResponseData, S
 
     let status = response.status();
 
-    if !(status == StatusCode::Ok || status == StatusCode::PartialContent) {
+    if !(status == StatusCode::OK || status == StatusCode::PARTIAL_CONTENT) {
         error!("ERROR {:?}", response);
         return Err("bad response status".to_string());
     }
@@ -72,30 +75,25 @@ fn get_data(filename: &str, range: Vec<ByteRangeSpec>) -> Result<ResponseData, S
     })
 }
 
-fn get_content_length(response: &reqwest::Response) -> Option<u64> {
-    match response.headers().get::<ContentRange>() {
-        Some(&ContentRange(ContentRangeSpec::Bytes {
-            range: _range,
-            instance_length,
-        })) => instance_length,
-        _ => match response.headers().get::<ContentLength>() {
-            Some(length) => Some(**length as u64),
-            None => None,
-        },
-    }
-}
-
 fn get_content_range(response: &reqwest::Response) -> Result<Option<u64>, String> {
-    match response.headers().get::<ContentRange>() {
-        Some(content_range) => match content_range.clone() {
-            ContentRange(ContentRangeSpec::Bytes {
-                range: _range,
-                instance_length: length,
-            }) => Ok(length),
-            ContentRange(ContentRangeSpec::Unregistered {
-                unit: _unit,
-                resp: _resp,
-            }) => Err("Unregistered, actually unsupported".to_string()),
+    match response.headers().get("Content-Range") {
+        Some(content_range) => {
+            match content_range.to_str() {
+                Ok(content_range_str) => {
+                    match ContentRangeSpec::from_str(content_range_str) {
+                        Ok(ContentRangeSpec::Bytes {
+                            range: _range,
+                            instance_length: length,
+                        }) => Ok(length),
+                        Ok(ContentRangeSpec::Unregistered {
+                            unit: _unit,
+                            resp: _resp,
+                        }) => Err("Unregistered, actually unsupported".to_string()),
+                        _ => Err("Error parsing content range from str".to_string())
+                    }
+                },
+                _ => Err("Error serializing header value to str".to_string())
+            }
         },
         None => Err("Missing content_range".to_string()),
     }
@@ -197,7 +195,7 @@ impl Reader for HttpReader {
             Ok(response) => {
                 let content_length = match get_content_range(&response) {
                     Ok(length) => length,
-                    _ => get_content_length(&response),
+                    _ => response.content_length(),
                 };
 
                 self.file_size = content_length;

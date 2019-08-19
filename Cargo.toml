@@ -11,8 +11,9 @@ documentation = "https://docs.rs/file_api"
 
 [dependencies]
 log = "0.4.1"
-hyper = "0.11.25"
-reqwest = "0.8.5"
+hyper = "^0.12"
+hyperx = "^0.15"
+reqwest = "^0.9"
 
 [dev-dependencies]
-futures = "0.1"
+futures = "^0.1"
