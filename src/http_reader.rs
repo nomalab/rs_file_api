@@ -1,13 +1,12 @@
-use hyper::{HeaderMap, StatusCode};
+use hyper::StatusCode;
 
-use hyperx::header::ByteRangeSpec;
-use hyperx::header::ByteRangeSpec::FromTo;
-use hyperx::header::Range::Bytes;
-use hyperx::header::ContentRangeSpec;
-use hyperx::Headers;
+use hyperx::{
+    header::{ByteRangeSpec, ByteRangeSpec::FromTo, ContentRangeSpec, Range::Bytes},
+    Headers,
+};
 
 use reqwest;
-use reqwest::Client;
+use reqwest::{header, Client};
 
 use buffer::Buffer;
 use reader::Reader;
@@ -24,7 +23,7 @@ fn get_head(filename: &str) -> Result<reqwest::Response, reqwest::Error> {
         let mut headers = Headers::new();
         headers.set(Bytes(range));
         let client = reqwest::Client::builder()
-            .default_headers(HeaderMap::from(headers))
+            .default_headers(headers.into())
             .build()
             .unwrap();
 
@@ -45,7 +44,7 @@ fn get_data(filename: &str, range: Vec<ByteRangeSpec>) -> Result<ResponseData, S
     let mut headers = Headers::new();
     headers.set(Bytes(range));
     let client = reqwest::Client::builder()
-        .default_headers(HeaderMap::from(headers))
+        .default_headers(headers.into())
         .build()
         .unwrap();
 
@@ -76,26 +75,24 @@ fn get_data(filename: &str, range: Vec<ByteRangeSpec>) -> Result<ResponseData, S
 }
 
 fn get_content_range(response: &reqwest::Response) -> Result<Option<u64>, String> {
-    match response.headers().get("Content-Range") {
-        Some(content_range) => {
-            match content_range.to_str() {
-                Ok(content_range_str) => {
-                    match ContentRangeSpec::from_str(content_range_str) {
-                        Ok(ContentRangeSpec::Bytes {
-                            range: _range,
-                            instance_length: length,
-                        }) => Ok(length),
-                        Ok(ContentRangeSpec::Unregistered {
-                            unit: _unit,
-                            resp: _resp,
-                        }) => Err("Unregistered, actually unsupported".to_string()),
-                        _ => Err("Error parsing content range from str".to_string())
-                    }
-                },
-                _ => Err("Error serializing header value to str".to_string())
+    if let Some(content_range) = response.headers().get(header::CONTENT_RANGE) {
+        let content_range_str = content_range
+            .to_str()
+            .map_err(|msg| format!("Error serializing header value to str: {}", msg))?;
+
+        match ContentRangeSpec::from_str(content_range_str)
+            .map_err(|msg| format!("Error parsing content range from str: {}", msg))?
+        {
+            ContentRangeSpec::Bytes {
+                instance_length: length,
+                ..
+            } => Ok(length),
+            ContentRangeSpec::Unregistered { .. } => {
+                Err("Unregistered, actually unsupported".to_string())
             }
-        },
-        None => Err("Missing content_range".to_string()),
+        }
+    } else {
+        Err("Missing content_range".to_string())
     }
 }
 
