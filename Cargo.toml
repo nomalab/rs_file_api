@@ -13,7 +13,7 @@ documentation = "https://docs.rs/file_api"
 log = "0.4.1"
 hyper = "^0.12"
 hyperx = "^0.15"
-reqwest = "^0.9"
+reqwest = "< 0.9.18"
 
 [dev-dependencies]
 futures = "^0.1"
