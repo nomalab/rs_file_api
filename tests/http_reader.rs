@@ -189,9 +189,9 @@ fn http_read_and_seek_buffered_data() {
         let mut reader = HttpReader::new();
         let _res = reader.open(&filename);
 
-        let new_position = reader.seek(SeekFrom::Current(2));
-        assert!(new_position.is_ok());
-        assert_eq!(new_position.unwrap(), 2);
+        let start_position = reader.seek(SeekFrom::Start(2));
+        assert!(start_position.is_ok());
+        assert_eq!(start_position.unwrap(), 2);
 
         reader.set_cache_size(Some(8));
 
