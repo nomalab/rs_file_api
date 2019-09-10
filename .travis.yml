@@ -41,7 +41,7 @@ matrix:
 
 
 script:
-  - cargo test
+  - cargo test && cargo test -- --ignored
 cache:
   cargo: true
 before_cache:
