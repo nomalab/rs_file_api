@@ -13,7 +13,7 @@ use futures::Sink;
 use file_api::http_reader::HttpReader;
 use file_api::reader::Reader;
 
-fn mock_server(port: &str, messages: Vec<String>, tester: &mut FnMut()) {
+fn mock_server(port: &str, messages: Vec<String>, tester: &mut dyn FnMut()) {
     let mut responses = messages.clone();
     responses.reverse();
 
@@ -73,6 +73,7 @@ macro_rules! assert_next_data {
 }
 
 #[test]
+#[ignore]
 fn http_exists() {
     let responses = vec!["HTTP/1.1 200 OK\n\n".to_string()];
 
@@ -85,6 +86,7 @@ fn http_exists() {
 }
 
 #[test]
+#[ignore]
 fn http_not_exists() {
     let responses = vec!["HTTP/1.1 404 OK\n\n".to_string()];
 
@@ -97,6 +99,7 @@ fn http_not_exists() {
 }
 
 #[test]
+#[ignore]
 fn http_size() {
     let responses = vec!["HTTP/1.1 200 OK\r\nContent-Length: 19\r\n\r\n".to_string()];
 
@@ -113,6 +116,7 @@ fn http_size() {
 }
 
 #[test]
+#[ignore]
 fn http_read_data() {
     let responses = vec![
         "HTTP/1.1 200 OK\r\nContent-Length: 19\r\n\r\n".to_string(),
@@ -138,6 +142,7 @@ fn http_read_data() {
 }
 
 #[test]
+#[ignore]
 fn http_read_buffered_data() {
     let responses = vec![
         "HTTP/1.1 200 OK\r\nContent-Length: 19\r\n\r\n".to_string(),
@@ -177,6 +182,7 @@ fn http_read_buffered_data() {
 }
 
 #[test]
+#[ignore]
 fn http_read_and_seek_buffered_data() {
     let responses = vec![
         "HTTP/1.1 200 OK\r\nContent-Length: 19\r\n\r\n".to_string(),
@@ -189,9 +195,9 @@ fn http_read_and_seek_buffered_data() {
         let mut reader = HttpReader::new();
         let _res = reader.open(&filename);
 
-        let new_position = reader.seek(SeekFrom::Current(2));
-        assert!(new_position.is_ok());
-        assert_eq!(new_position.unwrap(), 2);
+        let start_position = reader.seek(SeekFrom::Start(2));
+        assert!(start_position.is_ok());
+        assert_eq!(start_position.unwrap(), 2);
 
         reader.set_cache_size(Some(8));
 
@@ -210,6 +216,7 @@ fn http_read_and_seek_buffered_data() {
 }
 
 #[test]
+#[ignore]
 fn http_seek() {
     let responses = vec!["HTTP/1.1 200 OK\r\nContent-Length: 19\r\n\r\n".to_string()];
     fn check() {
@@ -227,6 +234,7 @@ fn http_seek() {
 }
 
 #[test]
+#[ignore]
 fn http_read_and_return_different_buffer_size() {
     let responses = vec![
     "HTTP/1.1 200 OK\r\nContent-Length: 19000\r\n\r\n".to_string(),

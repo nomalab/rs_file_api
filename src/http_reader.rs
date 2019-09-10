@@ -1,8 +1,9 @@
-use hyper::header::ByteRangeSpec;
-use hyper::header::ByteRangeSpec::FromTo;
-use hyper::header::Range::Bytes;
-use hyper::header::{ContentLength, ContentRange, ContentRangeSpec};
 use hyper::StatusCode;
+
+use hyperx::{
+    header::{ByteRangeSpec, ByteRangeSpec::FromTo, ContentRangeSpec, Range::Bytes},
+    Headers,
+};
 
 use reqwest;
 use reqwest::{header, Client};
@@ -12,16 +13,17 @@ use reader::Reader;
 
 use std::cmp;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom};
+use std::str::FromStr;
 use std::time::Instant;
 
 fn get_head(filename: &str) -> Result<reqwest::Response, reqwest::Error> {
     if filename.contains(".amazonaws.com") {
         let range = vec![FromTo(0, 0)];
 
-        let mut headers = header::Headers::new();
+        let mut headers = Headers::new();
         headers.set(Bytes(range));
         let client = reqwest::Client::builder()
-            .default_headers(headers)
+            .default_headers(headers.into())
             .build()
             .unwrap();
 
@@ -39,10 +41,10 @@ struct ResponseData {
 }
 
 fn get_data(filename: &str, range: Vec<ByteRangeSpec>) -> Result<ResponseData, String> {
-    let mut headers = header::Headers::new();
+    let mut headers = Headers::new();
     headers.set(Bytes(range));
     let client = reqwest::Client::builder()
-        .default_headers(headers)
+        .default_headers(headers.into())
         .build()
         .unwrap();
 
@@ -53,7 +55,7 @@ fn get_data(filename: &str, range: Vec<ByteRangeSpec>) -> Result<ResponseData, S
 
     let status = response.status();
 
-    if !(status == StatusCode::Ok || status == StatusCode::PartialContent) {
+    if !(status == StatusCode::OK || status == StatusCode::PARTIAL_CONTENT) {
         error!("ERROR {:?}", response);
         return Err("bad response status".to_string());
     }
@@ -72,32 +74,25 @@ fn get_data(filename: &str, range: Vec<ByteRangeSpec>) -> Result<ResponseData, S
     })
 }
 
-fn get_content_length(response: &reqwest::Response) -> Option<u64> {
-    match response.headers().get::<ContentRange>() {
-        Some(&ContentRange(ContentRangeSpec::Bytes {
-            range: _range,
-            instance_length,
-        })) => instance_length,
-        _ => match response.headers().get::<ContentLength>() {
-            Some(length) => Some(**length as u64),
-            None => None,
-        },
-    }
-}
-
 fn get_content_range(response: &reqwest::Response) -> Result<Option<u64>, String> {
-    match response.headers().get::<ContentRange>() {
-        Some(content_range) => match content_range.clone() {
-            ContentRange(ContentRangeSpec::Bytes {
-                range: _range,
+    if let Some(content_range) = response.headers().get(header::CONTENT_RANGE) {
+        let content_range_str = content_range
+            .to_str()
+            .map_err(|msg| format!("Error serializing header value to str: {}", msg))?;
+
+        match ContentRangeSpec::from_str(content_range_str)
+            .map_err(|msg| format!("Error parsing content range from str: {}", msg))?
+        {
+            ContentRangeSpec::Bytes {
                 instance_length: length,
-            }) => Ok(length),
-            ContentRange(ContentRangeSpec::Unregistered {
-                unit: _unit,
-                resp: _resp,
-            }) => Err("Unregistered, actually unsupported".to_string()),
-        },
-        None => Err("Missing content_range".to_string()),
+                ..
+            } => Ok(length),
+            ContentRangeSpec::Unregistered { .. } => {
+                Err("Unregistered, actually unsupported".to_string())
+            }
+        }
+    } else {
+        Err("Missing content_range".to_string())
     }
 }
 
@@ -197,7 +192,7 @@ impl Reader for HttpReader {
             Ok(response) => {
                 let content_length = match get_content_range(&response) {
                     Ok(length) => length,
-                    _ => get_content_length(&response),
+                    _ => response.content_length(),
                 };
 
                 self.file_size = content_length;
@@ -254,12 +249,12 @@ impl Read for HttpReader {
                 self.buffer.append_data(&data.to_vec());
                 self.position += buf.len() as u64;
                 if self.buffer.get_data(buf) {
-                    return Ok(buf.len());
+                    Ok(buf.len())
                 } else {
-                    return Err(Error::new(
+                    Err(Error::new(
                         ErrorKind::Other,
                         "unable to read data from HTTP cache",
-                    ));
+                    ))
                 }
             } else {
                 Ok(0)
