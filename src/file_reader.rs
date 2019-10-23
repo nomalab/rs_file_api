@@ -87,7 +87,9 @@ impl Read for FileReader {
 impl Seek for FileReader {
     fn seek(&mut self, seek_from: SeekFrom) -> Result<u64, Error> {
         if let Some(ref mut file_reader) = self.file {
-            file_reader.seek(seek_from)
+            let seek_position = file_reader.seek(seek_from)?;
+            self.position = seek_position;
+            Ok(seek_position)
         } else {
             Err(Error::new(ErrorKind::Other, "No file opened"))
         }
