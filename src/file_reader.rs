@@ -67,7 +67,7 @@ impl Reader for FileReader {
     }
 
     fn get_size(&mut self) -> Result<u64, String> {
-        let metadata = try!(fs::metadata(self.filename.clone()).map_err(|e| e.to_string()));
+        let metadata = fs::metadata(self.filename.clone()).map_err(|e| e.to_string())?;
         Ok(metadata.len())
     }
 }
